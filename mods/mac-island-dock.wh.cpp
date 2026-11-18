@@ -265,7 +265,7 @@ the bell; and the notches hiding together as one line:
     voice messages), and not for the apps turned off under "Apps that look
     for lyrics";
   * AI usage (an option, off by default, never online): how much of Claude
-    Code's and Codex's limits is used, the one closer to its end on the pill
+    Code's, Codex's and your own custom JSON file's limits is used, the one closer to its end on the pill
     with the time until it starts over (yellow from 70%, red from 90%), and
     both the 5-hour session and the week in its panel. It reads only what
     the agents keep on this PC, never their logins: Codex's own logs, and
@@ -809,7 +809,9 @@ left out if Windows doesn't match):
   PowerShell script that read it with
   `$stdin = [Console]::In.ReadToEnd()` (add it after that line). Without
   a status line yet, the command `cat > '<that file>'` (Git Bash) only
-  saves it and shows nothing;
+  saves it and shows nothing. Custom (JSON file): reads a local `.json`
+  file you point to (`{"name", "windows": [{"label", "used_percentage", "resets_at"}]}`,
+  or a JSON array of such objects; optional `"pill_name"` and `"updated_at"`);
 * world clocks: Windows' additional clocks (read from the registry,
   watched for changes);
 * the pill filling with downloads: the progress apps give their taskbar
@@ -2660,6 +2662,7 @@ struct {
     bool islandAiUsage;
     bool islandAiClaude;
     bool islandAiCodex;
+    bool islandAiCustom;
     // The app in focus with its window's title too (see
     // Island::FocusedText).
     bool islandFocusedTitle;
@@ -16213,6 +16216,7 @@ constexpr WCHAR kChineseTexts[] =
     L"Add clocks in Windows' date and time settings (Additional clocks)\0" L"在 Windows 的日期和时间设置中添加时钟（附加时钟）\0"
     L"Add controls\0" L"添加控件\0"
     L"Add note  (Ctrl+Enter)\0" L"添加笔记  (Ctrl+Enter)\0"
+    L"Add provider\0" L"添加服务\0"
     L"Add the shortcuts you want to remember\0" L"添加你想记住的快捷键\0"
     L"Added to your commands\0" L"已添加到你的命令\0"
     L"Adds a button for sleep, restart and shut down\0" L"添加用于睡眠、重启和关机的按钮\0"
@@ -16375,6 +16379,7 @@ constexpr WCHAR kChineseTexts[] =
     L"Charging battery color (own)\0" L"充电时的电池颜色（自定义）\0"
     L"Check every\0" L"检查间隔\0"
     L"Choose\0" L"选择\0"
+    L"Choose a JSON file\0" L"选择 JSON 文件\0"
     L"Choose a power plan\0" L"选择电源计划\0"
     L"Choose a program or a file\0" L"选择程序或文件\0"
     L"Choose it…\0" L"选择…\0"
@@ -16463,6 +16468,7 @@ constexpr WCHAR kChineseTexts[] =
     L"Cuddle\0" L"抚摸\0"
     L"Current\0" L"当前\0"
     L"Custom\0" L"自定义\0"
+    L"Custom (JSON file)\0" L"自定义（JSON 文件）\0"
     L"Customize…\0" L"自定义…\0"
     L"Cyan\0" L"青色\0"
     L"Cycles through the pictures of a folder as your wallpaper\0" L"将文件夹中的图片轮流设为壁纸\0"
@@ -16735,6 +16741,7 @@ constexpr WCHAR kChineseTexts[] =
     L"I'm all alone…\0" L"就剩我一个了……\0"
     L"I'm bored…\0" L"好无聊啊……\0"
     L"I'm drying up here.\0" L"我快渴干啦。\0"
+    L"Icon\0" L"图标\0"
     L"Icon and color\0" L"图标和颜色\0"
     L"Icon colors\0" L"图标颜色\0"
     L"Icon pack\0" L"图标包\0"
@@ -16777,6 +16784,7 @@ constexpr WCHAR kChineseTexts[] =
     L"Its focus or break ending, while it runs\0" L"番茄钟运行时，专注或休息的结束\0"
     L"Its look (profile):\0" L"外观（配置文件）：\0"
     L"Its style, size, hiding and animations are in Windhawk's settings for this mod\0" L"样式、大小、隐藏和动画在 Windhawk 中此模组的设置里\0"
+    L"JSON file\0" L"JSON 文件\0"
     L"Just one little game?\0" L"就玩一小局嘛？\0"
     L"Just watching…\0" L"就看看……\0"
     L"Keep as it is\0" L"保持现状\0"
@@ -17120,6 +17128,7 @@ constexpr WCHAR kChineseTexts[] =
     L"Plan: \0" L"计划：\0"
     L"Play\0" L"玩\0"
     L"Plug me in?\0" L"帮我插上电源？\0"
+    L"Point to a JSON file with \"name\" and \"windows\" (or a list of them) to show other services here\0" L"指向包含 \"name\" 和 \"windows\"（或其列表）的 JSON 文件，即可在此显示其他服务\0"
     L"Pomodoro finished\0" L"番茄钟结束\0"
     L"Power\0" L"电源\0"
     L"Power button\0" L"电源按钮\0"
@@ -17172,6 +17181,7 @@ constexpr WCHAR kChineseTexts[] =
     L"Rainbow\0" L"彩虹\0"
     L"Reacts to what the PC is doing\0" L"对电脑的状态做出反应\0"
     L"Reading…\0" L"正在读取…\0"
+    L"Reads limits from a JSON file on this PC ({\"name\", \"windows\"})\0" L"从这台电脑上的 JSON 文件读取额度（{\"name\"、\"windows\"}）\0"
     L"Record shortcut\0" L"录制快捷键\0"
     L"Record: %s\0" L"纪录：%s\0"
     L"Recycle Bin\0" L"回收站\0"
@@ -17277,6 +17287,7 @@ constexpr WCHAR kChineseTexts[] =
     L"Shh, nobody wakes me up now.\0" L"嘘，现在没人能叫醒我。\0"
     L"Shh… focus mode.\0" L"嘘……专注模式。\0"
     L"Short\0" L"短\0"
+    L"Short name\0" L"简称\0"
     L"Shortcut: let clicks through the pill\0" L"快捷键：让点击穿透胶囊\0"
     L"Shortcuts\0" L"快捷键\0"
     L"Shortcuts to programs and files (or command lines) you add, with their own icons, a click away in their panel; any of them can be a button on the pill or have a keyboard shortcut (set in its editor)\0" L"你添加的程序和文件（或命令行）的快捷方式，带有它们自己的图标，在其面板中一键打开；任何一个都可以成为胶囊上的按钮，或设置键盘快捷键（在其编辑器中设置）\0"
@@ -17548,7 +17559,7 @@ constexpr WCHAR kChineseTexts[] =
     L"Try again, or share the file from Explorer\0" L"请重试，或在文件资源管理器中分享该文件\0"
     L"Turn it on once in Windows' settings: from then on the island switches it\0" L"请先在 Windows 设置中打开一次，之后灵动岛就能开关它\0"
     L"Turn it up, I know this one.\0" L"调大声点，这首我会！\0"
-    L"Turn on Claude Code or Codex in the settings\0" L"请在设置中打开 Claude Code 或 Codex\0"
+    L"Turn on Claude Code, Codex or Custom in the settings\0" L"请在设置中打开 Claude Code、Codex 或自定义\0"
     L"Turned off\0" L"已关闭\0"
     L"Turned on\0" L"已开启\0"
     L"Turns the island's animations on or off, on every monitor\0" L"开启或关闭灵动岛的动画，对所有显示器生效\0"
@@ -17600,6 +17611,7 @@ constexpr WCHAR kChineseTexts[] =
     L"Volume and mixer in the panel\0" L"面板中的音量和混音器\0"
     L"Volume mixer\0" L"音量合成器\0"
     L"Volume percentage beside its icon\0" L"在音量图标旁显示百分比\0"
+    L"Waiting for valid data in the chosen file\0" L"正在等待所选文件中的有效数据\0"
     L"Wallpaper\0" L"壁纸\0"
     L"Wallpaper (the wheel: the next one)\0" L"壁纸（滚轮：下一张）\0"
     L"Wallpaper transition\0" L"壁纸过渡效果\0"
@@ -17889,6 +17901,7 @@ constexpr WCHAR kGermanTexts[] =
     L"Add clocks in Windows' date and time settings (Additional clocks)\0" L"Uhren in den Datums- und Uhrzeiteinstellungen von Windows hinzufügen (Zusätzliche Uhren)\0"
     L"Add controls\0" L"Steuerelemente hinzufügen\0"
     L"Add note  (Ctrl+Enter)\0" L"Notiz hinzufügen  (Strg+Enter)\0"
+    L"Add provider\0" L"Anbieter hinzufügen\0"
     L"Add the shortcuts you want to remember\0" L"Fügen Sie die Tastenkombinationen hinzu, die Sie sich merken wollen\0"
     L"Added to your commands\0" L"Zu deinen Befehlen hinzugefügt\0"
     L"Adds a button for sleep, restart and shut down\0" L"Fügt eine Schaltfläche für Energie sparen, Neustart und Herunterfahren hinzu\0"
@@ -18051,6 +18064,7 @@ constexpr WCHAR kGermanTexts[] =
     L"Charging battery color (own)\0" L"Farbe des ladenden Akkus (eigene)\0"
     L"Check every\0" L"Prüfen alle\0"
     L"Choose\0" L"Auswählen\0"
+    L"Choose a JSON file\0" L"JSON-Datei wählen\0"
     L"Choose a power plan\0" L"Energiesparplan wählen\0"
     L"Choose a program or a file\0" L"Programm oder Datei wählen\0"
     L"Choose it…\0" L"Auswählen…\0"
@@ -18139,6 +18153,7 @@ constexpr WCHAR kGermanTexts[] =
     L"Cuddle\0" L"Kuscheln\0"
     L"Current\0" L"Aktuell\0"
     L"Custom\0" L"Benutzerdefiniert\0"
+    L"Custom (JSON file)\0" L"Benutzerdefiniert (JSON-Datei)\0"
     L"Customize…\0" L"Anpassen…\0"
     L"Cyan\0" L"Cyan\0"
     L"Cycles through the pictures of a folder as your wallpaper\0" L"Wechselt die Bilder eines Ordners als Hintergrund durch\0"
@@ -18411,6 +18426,7 @@ constexpr WCHAR kGermanTexts[] =
     L"I'm all alone…\0" L"Ich bin ganz allein…\0"
     L"I'm bored…\0" L"Mir ist langweilig…\0"
     L"I'm drying up here.\0" L"Ich trockne hier aus.\0"
+    L"Icon\0" L"Symbol\0"
     L"Icon and color\0" L"Symbol und Farbe\0"
     L"Icon colors\0" L"Symbolfarben\0"
     L"Icon pack\0" L"Symbolpaket\0"
@@ -18453,6 +18469,7 @@ constexpr WCHAR kGermanTexts[] =
     L"Its focus or break ending, while it runs\0" L"Ende von Fokus oder Pause, solange er läuft\0"
     L"Its look (profile):\0" L"Sein Aussehen (Profil):\0"
     L"Its style, size, hiding and animations are in Windhawk's settings for this mod\0" L"Stil, Größe, Ausblenden und Animationen stehen in den Windhawk-Einstellungen dieses Mods\0"
+    L"JSON file\0" L"JSON-Datei\0"
     L"Just one little game?\0" L"Nur ein kleines Spiel?\0"
     L"Just watching…\0" L"Ich schau nur…\0"
     L"Keep as it is\0" L"Unverändert lassen\0"
@@ -18796,6 +18813,7 @@ constexpr WCHAR kGermanTexts[] =
     L"Plan: \0" L"Plan: \0"
     L"Play\0" L"Spielen\0"
     L"Plug me in?\0" L"Steckst du mich an?\0"
+    L"Point to a JSON file with \"name\" and \"windows\" (or a list of them) to show other services here\0" L"Wähle eine JSON-Datei mit \"name\" und \"windows\" (oder einer Liste davon), um hier weitere Dienste anzuzeigen\0"
     L"Pomodoro finished\0" L"Pomodoro beendet\0"
     L"Power\0" L"Energie\0"
     L"Power button\0" L"Ein/Aus-Schaltfläche\0"
@@ -18848,6 +18866,7 @@ constexpr WCHAR kGermanTexts[] =
     L"Rainbow\0" L"Regenbogen\0"
     L"Reacts to what the PC is doing\0" L"Reagiert auf das, was der PC tut\0"
     L"Reading…\0" L"Wird gelesen…\0"
+    L"Reads limits from a JSON file on this PC ({\"name\", \"windows\"})\0" L"Liest Limits aus einer JSON-Datei auf diesem PC ({\"name\", \"windows\"})\0"
     L"Record shortcut\0" L"Tastenkürzel aufzeichnen\0"
     L"Record: %s\0" L"Rekord: %s\0"
     L"Recycle Bin\0" L"Papierkorb\0"
@@ -18953,6 +18972,7 @@ constexpr WCHAR kGermanTexts[] =
     L"Shh, nobody wakes me up now.\0" L"Psst, jetzt weckt mich keiner.\0"
     L"Shh… focus mode.\0" L"Psst… Fokusmodus.\0"
     L"Short\0" L"Kurz\0"
+    L"Short name\0" L"Kurzname\0"
     L"Shortcut: let clicks through the pill\0" L"Tastenkürzel: Klicks durch die Kapsel lassen\0"
     L"Shortcuts\0" L"Tastenkombinationen\0"
     L"Shortcuts to programs and files (or command lines) you add, with their own icons, a click away in their panel; any of them can be a button on the pill or have a keyboard shortcut (set in its editor)\0" L"Verknüpfungen zu Programmen und Dateien (oder Befehlszeilen), die du hinzufügst, mit ihren eigenen Symbolen, mit einem Klick im Panel; jede kann ein Knopf in der Kapsel sein oder ein Tastenkürzel bekommen (im Editor des Befehls)\0"
@@ -19224,7 +19244,7 @@ constexpr WCHAR kGermanTexts[] =
     L"Try again, or share the file from Explorer\0" L"Versuche es noch einmal oder teile die Datei im Explorer\0"
     L"Turn it on once in Windows' settings: from then on the island switches it\0" L"Schalte ihn einmal in den Windows-Einstellungen ein, danach schaltet die Insel ihn\0"
     L"Turn it up, I know this one.\0" L"Dreh auf, den kenne ich!\0"
-    L"Turn on Claude Code or Codex in the settings\0" L"Schalte Claude Code oder Codex in den Einstellungen ein\0"
+    L"Turn on Claude Code, Codex or Custom in the settings\0" L"Schalte Claude Code, Codex oder Benutzerdefiniert in den Einstellungen ein\0"
     L"Turned off\0" L"Ausgeschaltet\0"
     L"Turned on\0" L"Eingeschaltet\0"
     L"Turns the island's animations on or off, on every monitor\0" L"Schaltet die Animationen der Insel ein oder aus, auf jedem Monitor\0"
@@ -19276,6 +19296,7 @@ constexpr WCHAR kGermanTexts[] =
     L"Volume and mixer in the panel\0" L"Lautstärke und Mixer im Panel\0"
     L"Volume mixer\0" L"Lautstärkemixer\0"
     L"Volume percentage beside its icon\0" L"Lautstärkeprozent neben dem Symbol\0"
+    L"Waiting for valid data in the chosen file\0" L"Warte auf gültige Daten in der gewählten Datei\0"
     L"Wallpaper\0" L"Hintergrund\0"
     L"Wallpaper (the wheel: the next one)\0" L"Hintergrund (das Rad: der nächste)\0"
     L"Wallpaper transition\0" L"Hintergrundübergang\0"
@@ -19565,6 +19586,7 @@ constexpr WCHAR kSpanishTexts[] =
     L"Add clocks in Windows' date and time settings (Additional clocks)\0" L"Añade relojes en la configuración de fecha y hora de Windows (Relojes adicionales)\0"
     L"Add controls\0" L"Añadir controles\0"
     L"Add note  (Ctrl+Enter)\0" L"Añadir nota  (Ctrl+Intro)\0"
+    L"Add provider\0" L"Agregar proveedor\0"
     L"Add the shortcuts you want to remember\0" L"Añade los atajos que quieres recordar\0"
     L"Added to your commands\0" L"Añadido a tus comandos\0"
     L"Adds a button for sleep, restart and shut down\0" L"Añade un botón para suspender, reiniciar y apagar\0"
@@ -19727,6 +19749,7 @@ constexpr WCHAR kSpanishTexts[] =
     L"Charging battery color (own)\0" L"Color de la batería al cargar (propio)\0"
     L"Check every\0" L"Comprobar cada\0"
     L"Choose\0" L"Elegir\0"
+    L"Choose a JSON file\0" L"Elige un archivo JSON\0"
     L"Choose a power plan\0" L"Elige un plan de energía\0"
     L"Choose a program or a file\0" L"Elige un programa o un archivo\0"
     L"Choose it…\0" L"Elegir…\0"
@@ -19815,6 +19838,7 @@ constexpr WCHAR kSpanishTexts[] =
     L"Cuddle\0" L"Mimos\0"
     L"Current\0" L"Actual\0"
     L"Custom\0" L"Personalizado\0"
+    L"Custom (JSON file)\0" L"Personalizado (archivo JSON)\0"
     L"Customize…\0" L"Personalizar…\0"
     L"Cyan\0" L"Cian\0"
     L"Cycles through the pictures of a folder as your wallpaper\0" L"Rota las imágenes de una carpeta como fondo de pantalla\0"
@@ -20087,6 +20111,7 @@ constexpr WCHAR kSpanishTexts[] =
     L"I'm all alone…\0" L"Me quedé solita…\0"
     L"I'm bored…\0" L"Qué aburrida estoy…\0"
     L"I'm drying up here.\0" L"Me estoy secando aquí.\0"
+    L"Icon\0" L"Ícono\0"
     L"Icon and color\0" L"Icono y color\0"
     L"Icon colors\0" L"Colores de los iconos\0"
     L"Icon pack\0" L"Paquete de iconos\0"
@@ -20129,6 +20154,7 @@ constexpr WCHAR kSpanishTexts[] =
     L"Its focus or break ending, while it runs\0" L"El final del enfoque o del descanso, mientras corre\0"
     L"Its look (profile):\0" L"Su aspecto (perfil):\0"
     L"Its style, size, hiding and animations are in Windhawk's settings for this mod\0" L"Su estilo, tamaño, ocultación y animaciones están en la configuración de Windhawk de este mod\0"
+    L"JSON file\0" L"Archivo JSON\0"
     L"Just one little game?\0" L"¿Solo una partidita?\0"
     L"Just watching…\0" L"Solo observando…\0"
     L"Keep as it is\0" L"Dejar como está\0"
@@ -20472,6 +20498,7 @@ constexpr WCHAR kSpanishTexts[] =
     L"Plan: \0" L"Plan: \0"
     L"Play\0" L"Jugar\0"
     L"Plug me in?\0" L"¿Me enchufas?\0"
+    L"Point to a JSON file with \"name\" and \"windows\" (or a list of them) to show other services here\0" L"Señala un archivo JSON con \"name\" y \"windows\" (o una lista de ellos) para mostrar otros servicios aquí\0"
     L"Pomodoro finished\0" L"Pomodoro terminado\0"
     L"Power\0" L"Energía\0"
     L"Power button\0" L"Botón de encendido\0"
@@ -20524,6 +20551,7 @@ constexpr WCHAR kSpanishTexts[] =
     L"Rainbow\0" L"Arcoíris\0"
     L"Reacts to what the PC is doing\0" L"Reacciona a lo que hace el PC\0"
     L"Reading…\0" L"Leyendo…\0"
+    L"Reads limits from a JSON file on this PC ({\"name\", \"windows\"})\0" L"Lee los límites desde un archivo JSON en este PC ({\"name\", \"windows\"})\0"
     L"Record shortcut\0" L"Grabar atajo\0"
     L"Record: %s\0" L"Récord: %s\0"
     L"Recycle Bin\0" L"Papelera de reciclaje\0"
@@ -20629,6 +20657,7 @@ constexpr WCHAR kSpanishTexts[] =
     L"Shh, nobody wakes me up now.\0" L"Shh, ahora nadie me despierta.\0"
     L"Shh… focus mode.\0" L"Shh… modo concentración.\0"
     L"Short\0" L"Corta\0"
+    L"Short name\0" L"Nombre corto\0"
     L"Shortcut: let clicks through the pill\0" L"Atajo: dejar pasar los clics a través de la píldora\0"
     L"Shortcuts\0" L"Atajos\0"
     L"Shortcuts to programs and files (or command lines) you add, with their own icons, a click away in their panel; any of them can be a button on the pill or have a keyboard shortcut (set in its editor)\0" L"Accesos directos a programas y archivos (o líneas de comando) que añades, con sus propios iconos, a un clic en su panel; cualquiera puede ser un botón en la píldora o tener un atajo de teclado (en su editor)\0"
@@ -20900,7 +20929,7 @@ constexpr WCHAR kSpanishTexts[] =
     L"Try again, or share the file from Explorer\0" L"Inténtalo de nuevo o comparte el archivo desde el Explorador\0"
     L"Turn it on once in Windows' settings: from then on the island switches it\0" L"Actívala una vez en la configuración de Windows; después la isla la enciende y apaga\0"
     L"Turn it up, I know this one.\0" L"Sube el volumen, ¡esta me la sé!\0"
-    L"Turn on Claude Code or Codex in the settings\0" L"Activa Claude Code o Codex en la configuración\0"
+    L"Turn on Claude Code, Codex or Custom in the settings\0" L"Activa Claude Code, Codex o Personalizado en la configuración\0"
     L"Turned off\0" L"Desactivado\0"
     L"Turned on\0" L"Activado\0"
     L"Turns the island's animations on or off, on every monitor\0" L"Activa o desactiva las animaciones de la isla, en todos los monitores\0"
@@ -20952,6 +20981,7 @@ constexpr WCHAR kSpanishTexts[] =
     L"Volume and mixer in the panel\0" L"Volumen y mezclador en el panel\0"
     L"Volume mixer\0" L"Mezclador de volumen\0"
     L"Volume percentage beside its icon\0" L"Porcentaje de volumen junto al icono\0"
+    L"Waiting for valid data in the chosen file\0" L"Esperando datos válidos en el archivo elegido\0"
     L"Wallpaper\0" L"Fondo de pantalla\0"
     L"Wallpaper (the wheel: the next one)\0" L"Fondo de pantalla (la rueda: el siguiente)\0"
     L"Wallpaper transition\0" L"Transición del fondo\0"
@@ -21241,6 +21271,7 @@ constexpr WCHAR kRussianTexts[] =
     L"Add clocks in Windows' date and time settings (Additional clocks)\0" L"Добавьте часы в настройках даты и времени Windows (Дополнительные часы)\0"
     L"Add controls\0" L"Добавить элементы\0"
     L"Add note  (Ctrl+Enter)\0" L"Добавить заметку  (Ctrl+Enter)\0"
+    L"Add provider\0" L"Добавить сервис\0"
     L"Add the shortcuts you want to remember\0" L"Добавьте сочетания клавиш, которые хотите запомнить\0"
     L"Added to your commands\0" L"Добавлено в ваши команды\0"
     L"Adds a button for sleep, restart and shut down\0" L"Добавляет кнопку сна, перезагрузки и выключения\0"
@@ -21403,6 +21434,7 @@ constexpr WCHAR kRussianTexts[] =
     L"Charging battery color (own)\0" L"Цвет батареи при зарядке (свой)\0"
     L"Check every\0" L"Проверять каждые\0"
     L"Choose\0" L"Выбрать\0"
+    L"Choose a JSON file\0" L"Выберите файл JSON\0"
     L"Choose a power plan\0" L"Выберите схему питания\0"
     L"Choose a program or a file\0" L"Выберите программу или файл\0"
     L"Choose it…\0" L"Выбрать…\0"
@@ -21491,6 +21523,7 @@ constexpr WCHAR kRussianTexts[] =
     L"Cuddle\0" L"Погладить\0"
     L"Current\0" L"Текущий\0"
     L"Custom\0" L"Свой\0"
+    L"Custom (JSON file)\0" L"Пользовательский (файл JSON)\0"
     L"Customize…\0" L"Настроить…\0"
     L"Cyan\0" L"Бирюзовый\0"
     L"Cycles through the pictures of a folder as your wallpaper\0" L"Меняет обои, перебирая изображения из папки\0"
@@ -21763,6 +21796,7 @@ constexpr WCHAR kRussianTexts[] =
     L"I'm all alone…\0" L"Я осталась совсем одна…\0"
     L"I'm bored…\0" L"Мне скучно…\0"
     L"I'm drying up here.\0" L"Я тут пересохла.\0"
+    L"Icon\0" L"Значок\0"
     L"Icon and color\0" L"Значок и цвет\0"
     L"Icon colors\0" L"Цвета значков\0"
     L"Icon pack\0" L"Набор значков\0"
@@ -21805,6 +21839,7 @@ constexpr WCHAR kRussianTexts[] =
     L"Its focus or break ending, while it runs\0" L"Конец фокуса или перерыва во время работы\0"
     L"Its look (profile):\0" L"Её вид (профиль):\0"
     L"Its style, size, hiding and animations are in Windhawk's settings for this mod\0" L"Стиль, размер, скрытие и анимации — в настройках этого мода в Windhawk\0"
+    L"JSON file\0" L"Файл JSON\0"
     L"Just one little game?\0" L"Ну хоть одну партию?\0"
     L"Just watching…\0" L"Просто смотрю…\0"
     L"Keep as it is\0" L"Оставить как есть\0"
@@ -22148,6 +22183,7 @@ constexpr WCHAR kRussianTexts[] =
     L"Plan: \0" L"Схема: \0"
     L"Play\0" L"Играть\0"
     L"Plug me in?\0" L"Подключишь меня к розетке?\0"
+    L"Point to a JSON file with \"name\" and \"windows\" (or a list of them) to show other services here\0" L"Укажите JSON-файл с полями \"name\" и \"windows\" (или их списком), чтобы показывать здесь другие сервисы\0"
     L"Pomodoro finished\0" L"Помидор завершён\0"
     L"Power\0" L"Питание\0"
     L"Power button\0" L"Кнопка питания\0"
@@ -22200,6 +22236,7 @@ constexpr WCHAR kRussianTexts[] =
     L"Rainbow\0" L"Радуга\0"
     L"Reacts to what the PC is doing\0" L"Реагирует на то, что делает ПК\0"
     L"Reading…\0" L"Чтение…\0"
+    L"Reads limits from a JSON file on this PC ({\"name\", \"windows\"})\0" L"Читает лимиты из JSON-файла на этом ПК ({\"name\", \"windows\"})\0"
     L"Record shortcut\0" L"Записать сочетание\0"
     L"Record: %s\0" L"Рекорд: %s\0"
     L"Recycle Bin\0" L"Корзина\0"
@@ -22305,6 +22342,7 @@ constexpr WCHAR kRussianTexts[] =
     L"Shh, nobody wakes me up now.\0" L"Тсс, теперь меня никто не разбудит.\0"
     L"Shh… focus mode.\0" L"Тсс… режим фокуса.\0"
     L"Short\0" L"Короткая\0"
+    L"Short name\0" L"Короткое имя\0"
     L"Shortcut: let clicks through the pill\0" L"Сочетание клавиш: пропускать щелчки сквозь капсулу\0"
     L"Shortcuts\0" L"Сочетания клавиш\0"
     L"Shortcuts to programs and files (or command lines) you add, with their own icons, a click away in their panel; any of them can be a button on the pill or have a keyboard shortcut (set in its editor)\0" L"Ярлыки программ и файлов (или командные строки), которые вы добавляете, со своими значками, в один клик в их панели; любой может стать кнопкой в капсуле или получить сочетание клавиш (в его редакторе)\0"
@@ -22576,7 +22614,7 @@ constexpr WCHAR kRussianTexts[] =
     L"Try again, or share the file from Explorer\0" L"Повторите попытку или поделитесь файлом из Проводника\0"
     L"Turn it on once in Windows' settings: from then on the island switches it\0" L"Включите его один раз в параметрах Windows, после этого остров сможет его переключать\0"
     L"Turn it up, I know this one.\0" L"Сделай громче, эту я знаю!\0"
-    L"Turn on Claude Code or Codex in the settings\0" L"Включите Claude Code или Codex в настройках\0"
+    L"Turn on Claude Code, Codex or Custom in the settings\0" L"Включите Claude Code, Codex или Пользовательский в настройках\0"
     L"Turned off\0" L"Выключено\0"
     L"Turned on\0" L"Включено\0"
     L"Turns the island's animations on or off, on every monitor\0" L"Включает или выключает анимации острова на всех мониторах\0"
@@ -22628,6 +22666,7 @@ constexpr WCHAR kRussianTexts[] =
     L"Volume and mixer in the panel\0" L"Громкость и микшер в панели\0"
     L"Volume mixer\0" L"Микшер громкости\0"
     L"Volume percentage beside its icon\0" L"Процент громкости рядом со значком\0"
+    L"Waiting for valid data in the chosen file\0" L"Ожидание корректных данных в выбранном файле\0"
     L"Wallpaper\0" L"Обои\0"
     L"Wallpaper (the wheel: the next one)\0" L"Обои (колесо: следующие)\0"
     L"Wallpaper transition\0" L"Смена обоев\0"
@@ -22917,6 +22956,7 @@ constexpr WCHAR kJapaneseTexts[] =
     L"Add clocks in Windows' date and time settings (Additional clocks)\0" L"Windows の日付と時刻の設定で時計を追加します（追加の時計）\0"
     L"Add controls\0" L"コントロールを追加\0"
     L"Add note  (Ctrl+Enter)\0" L"メモを追加  (Ctrl+Enter)\0"
+    L"Add provider\0" L"プロバイダーを追加\0"
     L"Add the shortcuts you want to remember\0" L"覚えておきたいショートカットを追加\0"
     L"Added to your commands\0" L"自分のコマンドに追加しました\0"
     L"Adds a button for sleep, restart and shut down\0" L"スリープ、再起動、シャットダウンのボタンを追加します\0"
@@ -23079,6 +23119,7 @@ constexpr WCHAR kJapaneseTexts[] =
     L"Charging battery color (own)\0" L"充電中のバッテリーの色（専用）\0"
     L"Check every\0" L"確認間隔\0"
     L"Choose\0" L"選択\0"
+    L"Choose a JSON file\0" L"JSON ファイルを選択\0"
     L"Choose a power plan\0" L"電源プランを選択\0"
     L"Choose a program or a file\0" L"プログラムまたはファイルを選択\0"
     L"Choose it…\0" L"選択…\0"
@@ -23167,6 +23208,7 @@ constexpr WCHAR kJapaneseTexts[] =
     L"Cuddle\0" L"なでる\0"
     L"Current\0" L"現在\0"
     L"Custom\0" L"カスタム\0"
+    L"Custom (JSON file)\0" L"カスタム（JSON ファイル）\0"
     L"Customize…\0" L"カスタマイズ…\0"
     L"Cyan\0" L"シアン\0"
     L"Cycles through the pictures of a folder as your wallpaper\0" L"フォルダー内の画像を壁紙として順番に切り替えます\0"
@@ -23439,6 +23481,7 @@ constexpr WCHAR kJapaneseTexts[] =
     L"I'm all alone…\0" L"ひとりぼっちになっちゃった…\0"
     L"I'm bored…\0" L"退屈だなあ…\0"
     L"I'm drying up here.\0" L"からからに乾いちゃう。\0"
+    L"Icon\0" L"アイコン\0"
     L"Icon and color\0" L"アイコンと色\0"
     L"Icon colors\0" L"アイコンの色\0"
     L"Icon pack\0" L"アイコンパック\0"
@@ -23481,6 +23524,7 @@ constexpr WCHAR kJapaneseTexts[] =
     L"Its focus or break ending, while it runs\0" L"実行中の集中または休憩の終了\0"
     L"Its look (profile):\0" L"外観（プロファイル）:\0"
     L"Its style, size, hiding and animations are in Windhawk's settings for this mod\0" L"スタイル、サイズ、非表示、アニメーションは、Windhawk のこの Mod の設定にあります\0"
+    L"JSON file\0" L"JSON ファイル\0"
     L"Just one little game?\0" L"ちょっとだけ遊ばない？\0"
     L"Just watching…\0" L"ただ眺めてるだけ…\0"
     L"Keep as it is\0" L"そのままにする\0"
@@ -23824,6 +23868,7 @@ constexpr WCHAR kJapaneseTexts[] =
     L"Plan: \0" L"プラン: \0"
     L"Play\0" L"遊ぶ\0"
     L"Plug me in?\0" L"充電してくれる？\0"
+    L"Point to a JSON file with \"name\" and \"windows\" (or a list of them) to show other services here\0" L"他のサービスをここに表示するには、\"name\" と \"windows\"（またはその一覧）を含む JSON ファイルを指定してください\0"
     L"Pomodoro finished\0" L"ポモドーロ終了\0"
     L"Power\0" L"電源\0"
     L"Power button\0" L"電源ボタン\0"
@@ -23876,6 +23921,7 @@ constexpr WCHAR kJapaneseTexts[] =
     L"Rainbow\0" L"レインボー\0"
     L"Reacts to what the PC is doing\0" L"PC の状態に反応する\0"
     L"Reading…\0" L"読み取り中…\0"
+    L"Reads limits from a JSON file on this PC ({\"name\", \"windows\"})\0" L"この PC 上の JSON ファイルから上限を読み取ります（{\"name\", \"windows\"}）\0"
     L"Record shortcut\0" L"ショートカットを記録\0"
     L"Record: %s\0" L"記録：%s\0"
     L"Recycle Bin\0" L"ごみ箱\0"
@@ -23981,6 +24027,7 @@ constexpr WCHAR kJapaneseTexts[] =
     L"Shh, nobody wakes me up now.\0" L"しーっ、今は誰にも起こされないよ。\0"
     L"Shh… focus mode.\0" L"しーっ…集中モードだよ。\0"
     L"Short\0" L"短い\0"
+    L"Short name\0" L"短縮名\0"
     L"Shortcut: let clicks through the pill\0" L"ショートカット：クリックをカプセルの下へ通す\0"
     L"Shortcuts\0" L"ショートカット\0"
     L"Shortcuts to programs and files (or command lines) you add, with their own icons, a click away in their panel; any of them can be a button on the pill or have a keyboard shortcut (set in its editor)\0" L"追加したプログラムやファイル（またはコマンドライン）へのショートカットを、それぞれのアイコン付きでパネルからワンクリックで。どれでもカプセルのボタンにでき、キーボードショートカットも設定できます（編集画面で）\0"
@@ -24252,7 +24299,7 @@ constexpr WCHAR kJapaneseTexts[] =
     L"Try again, or share the file from Explorer\0" L"もう一度試すか、エクスプローラーからファイルを共有してください\0"
     L"Turn it on once in Windows' settings: from then on the island switches it\0" L"Windows の設定で一度オンにしてください。その後はアイランドで切り替えられます\0"
     L"Turn it up, I know this one.\0" L"音量上げて、この曲知ってる！\0"
-    L"Turn on Claude Code or Codex in the settings\0" L"設定で Claude Code または Codex をオンにしてください\0"
+    L"Turn on Claude Code, Codex or Custom in the settings\0" L"設定で Claude Code、Codex、またはカスタムをオンにしてください\0"
     L"Turned off\0" L"オフにしました\0"
     L"Turned on\0" L"オンにしました\0"
     L"Turns the island's animations on or off, on every monitor\0" L"すべてのモニターでアイランドのアニメーションをオンまたはオフにします\0"
@@ -24304,6 +24351,7 @@ constexpr WCHAR kJapaneseTexts[] =
     L"Volume and mixer in the panel\0" L"パネルに音量とミキサーを表示\0"
     L"Volume mixer\0" L"音量ミキサー\0"
     L"Volume percentage beside its icon\0" L"アイコンの横に音量(%)を表示\0"
+    L"Waiting for valid data in the chosen file\0" L"選択したファイル内の有効なデータを待っています\0"
     L"Wallpaper\0" L"壁紙\0"
     L"Wallpaper (the wheel: the next one)\0" L"壁紙（ホイール: 次へ）\0"
     L"Wallpaper transition\0" L"壁紙のトランジション\0"
@@ -24593,6 +24641,7 @@ constexpr WCHAR kVietnameseTexts[] =
     L"Add clocks in Windows' date and time settings (Additional clocks)\0" L"Thêm đồng hồ trong cài đặt Ngày & giờ của Windows, mục Additional clocks\0"
     L"Add controls\0" L"Thêm nút điều khiển\0"
     L"Add note  (Ctrl+Enter)\0" L"Thêm ghi chú  (Ctrl+Enter)\0"
+    L"Add provider\0" L"Thêm dịch vụ\0"
     L"Add the shortcuts you want to remember\0" L"Lưu các phím tắt cần nhớ để tra cứu nhanh\0"
     L"Added to your commands\0" L"Đã thêm vào lệnh của bạn\0"
     L"Adds a button for sleep, restart and shut down\0" L"Thêm nút với các tùy chọn Ngủ, Khởi động lại và Tắt máy\0"
@@ -24755,6 +24804,7 @@ constexpr WCHAR kVietnameseTexts[] =
     L"Charging battery color (own)\0" L"Màu pin khi đang sạc (riêng)\0"
     L"Check every\0" L"Kiểm tra mỗi\0"
     L"Choose\0" L"Chọn\0"
+    L"Choose a JSON file\0" L"Chọn tệp JSON\0"
     L"Choose a power plan\0" L"Chọn chế độ nguồn (Power plan)\0"
     L"Choose a program or a file\0" L"Chọn chương trình hoặc tệp\0"
     L"Choose it…\0" L"Chọn…\0"
@@ -24843,6 +24893,7 @@ constexpr WCHAR kVietnameseTexts[] =
     L"Cuddle\0" L"Vuốt ve\0"
     L"Current\0" L"Hiện tại\0"
     L"Custom\0" L"Tùy chỉnh\0"
+    L"Custom (JSON file)\0" L"Tùy chỉnh (tệp JSON)\0"
     L"Customize…\0" L"Tùy chỉnh…\0"
     L"Cyan\0" L"Lục lam\0"
     L"Cycles through the pictures of a folder as your wallpaper\0" L"Luân phiên dùng các ảnh trong thư mục làm hình nền\0"
@@ -25115,6 +25166,7 @@ constexpr WCHAR kVietnameseTexts[] =
     L"I'm all alone…\0" L"Mình lại một mình rồi…\0"
     L"I'm bored…\0" L"Chán quá…\0"
     L"I'm drying up here.\0" L"Mình khô cả người rồi.\0"
+    L"Icon\0" L"Biểu tượng\0"
     L"Icon and color\0" L"Biểu tượng & màu sắc\0"
     L"Icon colors\0" L"Màu biểu tượng\0"
     L"Icon pack\0" L"Bộ biểu tượng\0"
@@ -25157,6 +25209,7 @@ constexpr WCHAR kVietnameseTexts[] =
     L"Its focus or break ending, while it runs\0" L"Đếm ngược đến khi kết thúc giai đoạn tập trung hoặc nghỉ hiện tại\0"
     L"Its look (profile):\0" L"Cấu hình giao diện:\0"
     L"Its style, size, hiding and animations are in Windhawk's settings for this mod\0" L"Chỉnh kiểu dáng, kích thước, chế độ tự động ẩn và hiệu ứng của Dock trong phần cài đặt mod trên Windhawk\0"
+    L"JSON file\0" L"Tệp JSON\0"
     L"Just one little game?\0" L"Chỉ một ván thôi nhé?\0"
     L"Just watching…\0" L"Mình chỉ đang ngắm thôi…\0"
     L"Keep as it is\0" L"Giữ nguyên\0"
@@ -25500,6 +25553,7 @@ constexpr WCHAR kVietnameseTexts[] =
     L"Plan: \0" L"Chế độ: \0"
     L"Play\0" L"Chơi\0"
     L"Plug me in?\0" L"Cắm sạc cho mình nhé?\0"
+    L"Point to a JSON file with \"name\" and \"windows\" (or a list of them) to show other services here\0" L"Trỏ tới tệp JSON có \"name\" và \"windows\" (hoặc danh sách các mục đó) để hiển thị dịch vụ khác tại đây\0"
     L"Pomodoro finished\0" L"Pomodoro xong\0"
     L"Power\0" L"Nguồn\0"
     L"Power button\0" L"Nút nguồn\0"
@@ -25552,6 +25606,7 @@ constexpr WCHAR kVietnameseTexts[] =
     L"Rainbow\0" L"Cầu vồng\0"
     L"Reacts to what the PC is doing\0" L"Phản ứng theo những gì máy tính đang làm\0"
     L"Reading…\0" L"Đang đọc…\0"
+    L"Reads limits from a JSON file on this PC ({\"name\", \"windows\"})\0" L"Đọc hạn mức từ tệp JSON trên máy này ({\"name\", \"windows\"})\0"
     L"Record shortcut\0" L"Ghi phím tắt\0"
     L"Record: %s\0" L"Kỷ lục: %s\0"
     L"Recycle Bin\0" L"Thùng rác\0"
@@ -25657,6 +25712,7 @@ constexpr WCHAR kVietnameseTexts[] =
     L"Shh, nobody wakes me up now.\0" L"Suỵt, giờ không ai đánh thức mình được.\0"
     L"Shh… focus mode.\0" L"Suỵt… chế độ tập trung.\0"
     L"Short\0" L"Ngắn\0"
+    L"Short name\0" L"Tên ngắn\0"
     L"Shortcut: let clicks through the pill\0" L"Phím tắt: cho phép bấm xuyên qua Island\0"
     L"Shortcuts\0" L"Phím tắt\0"
     L"Shortcuts to programs and files (or command lines) you add, with their own icons, a click away in their panel; any of them can be a button on the pill or have a keyboard shortcut (set in its editor)\0" L"Thêm lối tắt đến chương trình, tệp hoặc dòng lệnh, mỗi mục có biểu tượng riêng và mở được từ bảng lệnh. Bạn có thể đưa bất kỳ mục nào lên Island làm nút truy cập nhanh hoặc gán phím tắt cho nó (trong trình sửa lệnh)\0"
@@ -25928,7 +25984,7 @@ constexpr WCHAR kVietnameseTexts[] =
     L"Try again, or share the file from Explorer\0" L"Hãy thử lại, hoặc chia sẻ tệp từ File Explorer\0"
     L"Turn it on once in Windows' settings: from then on the island switches it\0" L"Hãy bật một lần trong cài đặt Windows, sau đó đảo sẽ tự bật tắt được\0"
     L"Turn it up, I know this one.\0" L"Mở to lên đi, bài này mình biết!\0"
-    L"Turn on Claude Code or Codex in the settings\0" L"Hãy bật Claude Code hoặc Codex trong cài đặt\0"
+    L"Turn on Claude Code, Codex or Custom in the settings\0" L"Hãy bật Claude Code, Codex hoặc Tùy chỉnh trong cài đặt\0"
     L"Turned off\0" L"Đã tắt\0"
     L"Turned on\0" L"Đã bật\0"
     L"Turns the island's animations on or off, on every monitor\0" L"Bật hoặc tắt hiệu ứng chuyển động của Island trên mọi màn hình\0"
@@ -25980,6 +26036,7 @@ constexpr WCHAR kVietnameseTexts[] =
     L"Volume and mixer in the panel\0" L"Âm lượng và bộ trộn trong bảng\0"
     L"Volume mixer\0" L"Bộ trộn âm lượng\0"
     L"Volume percentage beside its icon\0" L"Phần trăm âm lượng cạnh biểu tượng\0"
+    L"Waiting for valid data in the chosen file\0" L"Đang chờ dữ liệu hợp lệ trong tệp đã chọn\0"
     L"Wallpaper\0" L"Hình nền\0"
     L"Wallpaper (the wheel: the next one)\0" L"Đổi hình nền (lăn chuột để qua ảnh tiếp)\0"
     L"Wallpaper transition\0" L"Hiệu ứng chuyển hình nền\0"
@@ -26269,6 +26326,7 @@ constexpr WCHAR kFrenchTexts[] =
     L"Add clocks in Windows' date and time settings (Additional clocks)\0" L"Ajoutez des horloges dans les paramètres de date et d'heure de Windows (Horloges supplémentaires)\0"
     L"Add controls\0" L"Ajouter des contrôles\0"
     L"Add note  (Ctrl+Enter)\0" L"Ajouter une note  (Ctrl+Entrée)\0"
+    L"Add provider\0" L"Ajouter un service\0"
     L"Add the shortcuts you want to remember\0" L"Ajoutez les raccourcis dont vous voulez vous souvenir\0"
     L"Added to your commands\0" L"Ajouté à vos commandes\0"
     L"Adds a button for sleep, restart and shut down\0" L"Ajoute un bouton pour la mise en veille, le redémarrage et l'arrêt\0"
@@ -26431,6 +26489,7 @@ constexpr WCHAR kFrenchTexts[] =
     L"Charging battery color (own)\0" L"Couleur de la batterie en charge (propre)\0"
     L"Check every\0" L"Vérifier chaque\0"
     L"Choose\0" L"Choisir\0"
+    L"Choose a JSON file\0" L"Choisir un fichier JSON\0"
     L"Choose a power plan\0" L"Choisir un plan d'alimentation\0"
     L"Choose a program or a file\0" L"Choisir un programme ou un fichier\0"
     L"Choose it…\0" L"Choisir…\0"
@@ -26519,6 +26578,7 @@ constexpr WCHAR kFrenchTexts[] =
     L"Cuddle\0" L"Câlin\0"
     L"Current\0" L"Actuel\0"
     L"Custom\0" L"Personnalisé\0"
+    L"Custom (JSON file)\0" L"Personnalisé (fichier JSON)\0"
     L"Customize…\0" L"Personnaliser…\0"
     L"Cyan\0" L"Cyan\0"
     L"Cycles through the pictures of a folder as your wallpaper\0" L"Parcourt les images d'un dossier comme fond d'écran\0"
@@ -26791,6 +26851,7 @@ constexpr WCHAR kFrenchTexts[] =
     L"I'm all alone…\0" L"Je suis toute seule…\0"
     L"I'm bored…\0" L"Je m'ennuie…\0"
     L"I'm drying up here.\0" L"Je me dessèche ici.\0"
+    L"Icon\0" L"Icône\0"
     L"Icon and color\0" L"Icône et couleur\0"
     L"Icon colors\0" L"Couleurs des icônes\0"
     L"Icon pack\0" L"Pack d'icônes\0"
@@ -26833,6 +26894,7 @@ constexpr WCHAR kFrenchTexts[] =
     L"Its focus or break ending, while it runs\0" L"La fin de sa concentration ou de sa pause, pendant qu'il tourne\0"
     L"Its look (profile):\0" L"Son apparence (profil)\u00A0:\0"
     L"Its style, size, hiding and animations are in Windhawk's settings for this mod\0" L"Son style, sa taille, son masquage et ses animations se règlent dans les paramètres Windhawk de ce mod\0"
+    L"JSON file\0" L"Fichier JSON\0"
     L"Just one little game?\0" L"Juste un petit jeu\u00A0?\0"
     L"Just watching…\0" L"Je regarde juste…\0"
     L"Keep as it is\0" L"Laisser tel quel\0"
@@ -27176,6 +27238,7 @@ constexpr WCHAR kFrenchTexts[] =
     L"Plan: \0" L"Plan\u00A0: \0"
     L"Play\0" L"Jouer\0"
     L"Plug me in?\0" L"Vous me branchez\u00A0?\0"
+    L"Point to a JSON file with \"name\" and \"windows\" (or a list of them) to show other services here\0" L"Indiquez un fichier JSON avec \"name\" et \"windows\" (ou une liste) pour afficher d'autres services ici\0"
     L"Pomodoro finished\0" L"Pomodoro terminé\0"
     L"Power\0" L"Alimentation\0"
     L"Power button\0" L"Bouton d'alimentation\0"
@@ -27228,6 +27291,7 @@ constexpr WCHAR kFrenchTexts[] =
     L"Rainbow\0" L"Arc-en-ciel\0"
     L"Reacts to what the PC is doing\0" L"Réagit à ce que fait le PC\0"
     L"Reading…\0" L"Lecture…\0"
+    L"Reads limits from a JSON file on this PC ({\"name\", \"windows\"})\0" L"Lit les limites depuis un fichier JSON sur ce PC ({\"name\", \"windows\"})\0"
     L"Record shortcut\0" L"Enregistrer un raccourci\0"
     L"Record: %s\0" L"Record\u00A0: %s\0"
     L"Recycle Bin\0" L"Corbeille\0"
@@ -27333,6 +27397,7 @@ constexpr WCHAR kFrenchTexts[] =
     L"Shh, nobody wakes me up now.\0" L"Chut, personne ne me réveille maintenant.\0"
     L"Shh… focus mode.\0" L"Chut… mode concentration.\0"
     L"Short\0" L"Court\0"
+    L"Short name\0" L"Nom court\0"
     L"Shortcut: let clicks through the pill\0" L"Raccourci\u00A0: laisser passer les clics à travers la pilule\0"
     L"Shortcuts\0" L"Raccourcis\0"
     L"Shortcuts to programs and files (or command lines) you add, with their own icons, a click away in their panel; any of them can be a button on the pill or have a keyboard shortcut (set in its editor)\0" L"Raccourcis vers des programmes et des fichiers (ou des lignes de commande) que vous ajoutez, avec leurs propres icônes, à un clic dans leur panneau\u00A0; chacun peut devenir un bouton de la pilule ou avoir un raccourci clavier (défini dans son éditeur)\0"
@@ -27604,7 +27669,7 @@ constexpr WCHAR kFrenchTexts[] =
     L"Try again, or share the file from Explorer\0" L"Réessayez, ou partagez le fichier depuis l'Explorateur\0"
     L"Turn it on once in Windows' settings: from then on the island switches it\0" L"Activez-le une fois dans les paramètres de Windows, ensuite l'île pourra le basculer\0"
     L"Turn it up, I know this one.\0" L"Montez le son, celui-là, je le connais\u00A0!\0"
-    L"Turn on Claude Code or Codex in the settings\0" L"Activez Claude Code ou Codex dans les paramètres\0"
+    L"Turn on Claude Code, Codex or Custom in the settings\0" L"Activez Claude Code, Codex ou Personnalisé dans les paramètres\0"
     L"Turned off\0" L"Désactivé\0"
     L"Turned on\0" L"Activé\0"
     L"Turns the island's animations on or off, on every monitor\0" L"Active ou désactive les animations de l'île, sur chaque écran\0"
@@ -27656,6 +27721,7 @@ constexpr WCHAR kFrenchTexts[] =
     L"Volume and mixer in the panel\0" L"Volume et mélangeur dans le panneau\0"
     L"Volume mixer\0" L"Mélangeur de volume\0"
     L"Volume percentage beside its icon\0" L"Pourcentage du volume à côté de son icône\0"
+    L"Waiting for valid data in the chosen file\0" L"En attente de données valides dans le fichier choisi\0"
     L"Wallpaper\0" L"Fond d'écran\0"
     L"Wallpaper (the wheel: the next one)\0" L"Fond d'écran (la molette\u00A0: le suivant)\0"
     L"Wallpaper transition\0" L"Transition du fond d'écran\0"
@@ -27945,6 +28011,7 @@ constexpr WCHAR kTurkishTexts[] =
     L"Add clocks in Windows' date and time settings (Additional clocks)\0" L"Saatleri Windows'un tarih ve saat ayarlarından ekleyin (Ek saatler)\0"
     L"Add controls\0" L"Denetim ekle\0"
     L"Add note  (Ctrl+Enter)\0" L"Not ekle  (Ctrl+Enter)\0"
+    L"Add provider\0" L"Sağlayıcı ekle\0"
     L"Add the shortcuts you want to remember\0" L"Hatırlamak istediğiniz kısayolları ekleyin\0"
     L"Added to your commands\0" L"Komutlarınıza eklendi\0"
     L"Adds a button for sleep, restart and shut down\0" L"Uyku, yeniden başlatma ve kapatma için bir düğme ekler\0"
@@ -28107,6 +28174,7 @@ constexpr WCHAR kTurkishTexts[] =
     L"Charging battery color (own)\0" L"Şarj olan pilin rengi (kendi)\0"
     L"Check every\0" L"Kontrol aralığı\0"
     L"Choose\0" L"Seç\0"
+    L"Choose a JSON file\0" L"Bir JSON dosyası seçin\0"
     L"Choose a power plan\0" L"Güç planı seç\0"
     L"Choose a program or a file\0" L"Bir program veya dosya seçin\0"
     L"Choose it…\0" L"Seç…\0"
@@ -28195,6 +28263,7 @@ constexpr WCHAR kTurkishTexts[] =
     L"Cuddle\0" L"Sarıl\0"
     L"Current\0" L"Geçerli\0"
     L"Custom\0" L"Özel\0"
+    L"Custom (JSON file)\0" L"Özel (JSON dosyası)\0"
     L"Customize…\0" L"Özelleştir…\0"
     L"Cyan\0" L"Camgöbeği\0"
     L"Cycles through the pictures of a folder as your wallpaper\0" L"Bir klasördeki resimleri duvar kâğıdınız olarak sırayla değiştirir\0"
@@ -28467,6 +28536,7 @@ constexpr WCHAR kTurkishTexts[] =
     L"I'm all alone…\0" L"Yapayalnızım…\0"
     L"I'm bored…\0" L"Canım sıkılıyor…\0"
     L"I'm drying up here.\0" L"Burada kuruyorum.\0"
+    L"Icon\0" L"Simge\0"
     L"Icon and color\0" L"Simge ve renk\0"
     L"Icon colors\0" L"Simge renkleri\0"
     L"Icon pack\0" L"Simge paketi\0"
@@ -28509,6 +28579,7 @@ constexpr WCHAR kTurkishTexts[] =
     L"Its focus or break ending, while it runs\0" L"Çalışırken odak veya mola bitişi\0"
     L"Its look (profile):\0" L"Görünümü (profil):\0"
     L"Its style, size, hiding and animations are in Windhawk's settings for this mod\0" L"Stili, boyutu, gizlenmesi ve animasyonları bu modun Windhawk ayarlarındadır\0"
+    L"JSON file\0" L"JSON dosyası\0"
     L"Just one little game?\0" L"Sadece küçük bir oyun?\0"
     L"Just watching…\0" L"Sadece izliyorum…\0"
     L"Keep as it is\0" L"Olduğu gibi bırak\0"
@@ -28852,6 +28923,7 @@ constexpr WCHAR kTurkishTexts[] =
     L"Plan: \0" L"Plan: \0"
     L"Play\0" L"Oyna\0"
     L"Plug me in?\0" L"Beni prize takar mısın?\0"
+    L"Point to a JSON file with \"name\" and \"windows\" (or a list of them) to show other services here\0" L"Diğer hizmetleri burada göstermek için \"name\" ve \"windows\" içeren bir JSON dosyası (veya bunların listesini) seçin\0"
     L"Pomodoro finished\0" L"Pomodoro bitti\0"
     L"Power\0" L"Güç\0"
     L"Power button\0" L"Güç düğmesi\0"
@@ -28904,6 +28976,7 @@ constexpr WCHAR kTurkishTexts[] =
     L"Rainbow\0" L"Gökkuşağı\0"
     L"Reacts to what the PC is doing\0" L"Bilgisayarın yaptığına tepki verir\0"
     L"Reading…\0" L"Okunuyor…\0"
+    L"Reads limits from a JSON file on this PC ({\"name\", \"windows\"})\0" L"Bu bilgisayardaki bir JSON dosyasından sınırları okur ({\"name\", \"windows\"})\0"
     L"Record shortcut\0" L"Kısayolu kaydet\0"
     L"Record: %s\0" L"Rekor: %s\0"
     L"Recycle Bin\0" L"Geri Dönüşüm Kutusu\0"
@@ -29009,6 +29082,7 @@ constexpr WCHAR kTurkishTexts[] =
     L"Shh, nobody wakes me up now.\0" L"Şş, şimdi kimse beni uyandırmasın.\0"
     L"Shh… focus mode.\0" L"Şş… odak modu.\0"
     L"Short\0" L"Kısa\0"
+    L"Short name\0" L"Kısa ad\0"
     L"Shortcut: let clicks through the pill\0" L"Kısayol: tıklamaları kapsülün içinden geçir\0"
     L"Shortcuts\0" L"Kısayollar\0"
     L"Shortcuts to programs and files (or command lines) you add, with their own icons, a click away in their panel; any of them can be a button on the pill or have a keyboard shortcut (set in its editor)\0" L"Eklediğiniz program ve dosyalara (veya komut satırlarına) kendi simgeleriyle kısayollar, panelinde tek tıkla; hepsi kapsülde düğme olabilir veya klavye kısayoluna sahip olabilir (düzenleyicisinde ayarlanır)\0"
@@ -29280,7 +29354,7 @@ constexpr WCHAR kTurkishTexts[] =
     L"Try again, or share the file from Explorer\0" L"Tekrar deneyin veya dosyayı Dosya Gezgini'nden paylaşın\0"
     L"Turn it on once in Windows' settings: from then on the island switches it\0" L"Bir kez Windows ayarlarından açın, sonrasında ada onu açıp kapatabilir\0"
     L"Turn it up, I know this one.\0" L"Sesi aç, bunu biliyorum.\0"
-    L"Turn on Claude Code or Codex in the settings\0" L"Ayarlarda Claude Code veya Codex'i açın\0"
+    L"Turn on Claude Code, Codex or Custom in the settings\0" L"Ayarlarda Claude Code, Codex veya Özel'i açın\0"
     L"Turned off\0" L"Kapatıldı\0"
     L"Turned on\0" L"Açıldı\0"
     L"Turns the island's animations on or off, on every monitor\0" L"Adanın animasyonlarını her monitörde açar veya kapatır\0"
@@ -29332,6 +29406,7 @@ constexpr WCHAR kTurkishTexts[] =
     L"Volume and mixer in the panel\0" L"Panelde ses ve karıştırıcı\0"
     L"Volume mixer\0" L"Ses karıştırıcı\0"
     L"Volume percentage beside its icon\0" L"Simgesinin yanında ses yüzdesi\0"
+    L"Waiting for valid data in the chosen file\0" L"Seçilen dosyada geçerli veri bekleniyor\0"
     L"Wallpaper\0" L"Duvar kâğıdı\0"
     L"Wallpaper (the wheel: the next one)\0" L"Duvar kâğıdı (tekerlek: sonraki)\0"
     L"Wallpaper transition\0" L"Duvar kâğıdı geçişi\0"
@@ -29621,6 +29696,7 @@ constexpr WCHAR kKoreanTexts[] =
     L"Add clocks in Windows' date and time settings (Additional clocks)\0" L"Windows 날짜 및 시간 설정에서 시계를 추가하세요 (추가 시계)\0"
     L"Add controls\0" L"컨트롤 추가\0"
     L"Add note  (Ctrl+Enter)\0" L"메모 추가  (Ctrl+Enter)\0"
+    L"Add provider\0" L"공급자 추가\0"
     L"Add the shortcuts you want to remember\0" L"기억하고 싶은 바로 가기를 추가하세요\0"
     L"Added to your commands\0" L"내 명령에 추가했어요\0"
     L"Adds a button for sleep, restart and shut down\0" L"절전, 다시 시작, 시스템 종료 버튼을 추가해요\0"
@@ -29783,6 +29859,7 @@ constexpr WCHAR kKoreanTexts[] =
     L"Charging battery color (own)\0" L"충전 중 배터리 색 (고유)\0"
     L"Check every\0" L"확인 주기\0"
     L"Choose\0" L"선택\0"
+    L"Choose a JSON file\0" L"JSON 파일 선택\0"
     L"Choose a power plan\0" L"전원 관리 옵션 선택\0"
     L"Choose a program or a file\0" L"프로그램이나 파일 선택\0"
     L"Choose it…\0" L"선택…\0"
@@ -29871,6 +29948,7 @@ constexpr WCHAR kKoreanTexts[] =
     L"Cuddle\0" L"쓰다듬기\0"
     L"Current\0" L"현재\0"
     L"Custom\0" L"사용자 지정\0"
+    L"Custom (JSON file)\0" L"사용자 지정 (JSON 파일)\0"
     L"Customize…\0" L"사용자 지정…\0"
     L"Cyan\0" L"청록\0"
     L"Cycles through the pictures of a folder as your wallpaper\0" L"폴더의 사진들을 배경 화면으로 차례로 바꿔요\0"
@@ -30143,6 +30221,7 @@ constexpr WCHAR kKoreanTexts[] =
     L"I'm all alone…\0" L"나 혼자 남았어요…\0"
     L"I'm bored…\0" L"심심해요…\0"
     L"I'm drying up here.\0" L"여기서 말라 가고 있어요.\0"
+    L"Icon\0" L"아이콘\0"
     L"Icon and color\0" L"아이콘 및 색\0"
     L"Icon colors\0" L"아이콘 색\0"
     L"Icon pack\0" L"아이콘 팩\0"
@@ -30185,6 +30264,7 @@ constexpr WCHAR kKoreanTexts[] =
     L"Its focus or break ending, while it runs\0" L"실행 중일 때 집중 또는 휴식이 끝나는 시점\0"
     L"Its look (profile):\0" L"모양 (프로필):\0"
     L"Its style, size, hiding and animations are in Windhawk's settings for this mod\0" L"스타일, 크기, 숨기기, 애니메이션은 이 모드의 Windhawk 설정에 있어요\0"
+    L"JSON file\0" L"JSON 파일\0"
     L"Just one little game?\0" L"게임 한 판만?\0"
     L"Just watching…\0" L"그냥 지켜보는 중…\0"
     L"Keep as it is\0" L"그대로 두기\0"
@@ -30528,6 +30608,7 @@ constexpr WCHAR kKoreanTexts[] =
     L"Plan: \0" L"요금제: \0"
     L"Play\0" L"놀기\0"
     L"Plug me in?\0" L"나 좀 충전해 줄래요?\0"
+    L"Point to a JSON file with \"name\" and \"windows\" (or a list of them) to show other services here\0" L"여기에 다른 서비스를 표시하려면 \"name\"과 \"windows\"(또는 그 목록)가 있는 JSON 파일을 지정하세요\0"
     L"Pomodoro finished\0" L"뽀모도로 종료\0"
     L"Power\0" L"전원\0"
     L"Power button\0" L"전원 버튼\0"
@@ -30580,6 +30661,7 @@ constexpr WCHAR kKoreanTexts[] =
     L"Rainbow\0" L"무지개\0"
     L"Reacts to what the PC is doing\0" L"PC가 하는 일에 반응해요\0"
     L"Reading…\0" L"읽는 중…\0"
+    L"Reads limits from a JSON file on this PC ({\"name\", \"windows\"})\0" L"이 PC의 JSON 파일에서 한도를 읽어요 ({\"name\", \"windows\"})\0"
     L"Record shortcut\0" L"바로 가기 기록\0"
     L"Record: %s\0" L"기록: %s\0"
     L"Recycle Bin\0" L"휴지통\0"
@@ -30685,6 +30767,7 @@ constexpr WCHAR kKoreanTexts[] =
     L"Shh, nobody wakes me up now.\0" L"쉿, 이제 아무도 날 깨우지 않아요.\0"
     L"Shh… focus mode.\0" L"쉿… 집중 모드예요.\0"
     L"Short\0" L"짧게\0"
+    L"Short name\0" L"짧은 이름\0"
     L"Shortcut: let clicks through the pill\0" L"바로 가기: 클릭이 캡슐을 통과하게 하기\0"
     L"Shortcuts\0" L"바로 가기\0"
     L"Shortcuts to programs and files (or command lines) you add, with their own icons, a click away in their panel; any of them can be a button on the pill or have a keyboard shortcut (set in its editor)\0" L"추가한 프로그램과 파일(또는 명령줄)로 가는 바로 가기를 고유 아이콘과 함께 패널에서 한 번에 클릭할 수 있어요. 어느 것이든 캡슐 버튼이 되거나 키보드 바로 가기를 지정할 수 있어요(편집기에서 설정)\0"
@@ -30956,7 +31039,7 @@ constexpr WCHAR kKoreanTexts[] =
     L"Try again, or share the file from Explorer\0" L"다시 시도하거나 탐색기에서 파일을 공유하세요\0"
     L"Turn it on once in Windows' settings: from then on the island switches it\0" L"Windows 설정에서 한 번 켜 주세요. 그다음부터는 아일랜드에서 켜고 끌 수 있어요\0"
     L"Turn it up, I know this one.\0" L"볼륨 좀 올려요, 이 노래 알아요!\0"
-    L"Turn on Claude Code or Codex in the settings\0" L"설정에서 Claude Code 또는 Codex를 켜세요\0"
+    L"Turn on Claude Code, Codex or Custom in the settings\0" L"설정에서 Claude Code, Codex 또는 사용자 지정을 켜세요\0"
     L"Turned off\0" L"꺼졌어요\0"
     L"Turned on\0" L"켜졌어요\0"
     L"Turns the island's animations on or off, on every monitor\0" L"모든 모니터에서 아일랜드의 애니메이션을 켜거나 꺼요\0"
@@ -31008,6 +31091,7 @@ constexpr WCHAR kKoreanTexts[] =
     L"Volume and mixer in the panel\0" L"패널의 볼륨 및 믹서\0"
     L"Volume mixer\0" L"볼륨 믹서\0"
     L"Volume percentage beside its icon\0" L"아이콘 옆에 볼륨 비율 표시\0"
+    L"Waiting for valid data in the chosen file\0" L"선택한 파일의 올바른 데이터를 기다리는 중이에요\0"
     L"Wallpaper\0" L"배경 화면\0"
     L"Wallpaper (the wheel: the next one)\0" L"배경 화면 (휠: 다음 항목)\0"
     L"Wallpaper transition\0" L"배경 화면 전환 효과\0"
@@ -55921,6 +56005,7 @@ enum class IslandPref {
     CalendarTasks,
     CopyCodes,
     PetAskPlay,
+    AiCustom,
 };
 
 struct IslandPrefInfo {
@@ -56523,6 +56608,8 @@ const IslandPrefInfo kIslandPrefs[] = {
      L"Copy verification codes", L"Copiar códigos de verificação"},
     {IslandPref::PetAskPlay, L"islandPetAskPlay", 0xE7FC,
      L"She asks to play when bored", L"Ela pede para brincar quando entediada"},
+    {IslandPref::AiCustom, L"islandAiCustom", kGlyphAiUsage,
+     L"Custom (JSON file)", L"Personalizado (arquivo JSON)"},
 };
 
 // The groups of items on the pill, which can be put in another order in the
@@ -60643,6 +60730,7 @@ class ControlPanel : public Panel {
         IconCellColor,   // Its brush: a color of its own (its kIcons index).
         IconPackDelete,  // An icon pack's bin: its pictures deleted (its pack).
         SetupButton,     // A button of the setup assistant (its SetupButton).
+        AiCustomFile,    // "Choose..." on the Custom AI usage row.
     };
 
     struct Hit {
@@ -60910,7 +60998,8 @@ class ControlPanel : public Panel {
                  pref == IslandPref::CountdownTimer ||
                  pref == IslandPref::CountdownPomodoro) &&
                 !GetIslandPref(IslandPref::Countdown)) ||
-               ((pref == IslandPref::AiClaude || pref == IslandPref::AiCodex) &&
+               ((pref == IslandPref::AiClaude || pref == IslandPref::AiCodex ||
+                 pref == IslandPref::AiCustom) &&
                 !GetIslandPref(IslandPref::AiUsage)) ||
                (pref == IslandPref::FocusedTitle &&
                 !GetIslandPref(IslandPref::FocusedApp)) ||
@@ -61721,6 +61810,8 @@ class ControlPanel : public Panel {
     std::array<unsigned, kPetSounds> m_petSoundEpoch{};
     void StartPetSoundFileDialog(int sound);
     void SetPetSoundSource(int sound, int choice);
+    std::wstring m_aiCustomStatus;
+    void StartAiCustomFileDialog();
     bool m_profileTyping = false;
     // "Delete" pressed once: it asks, and deletes when pressed again.
     bool m_profileDeleteArmed = false;
@@ -79422,6 +79513,33 @@ struct AiUsage {
     long long writtenAt = 0;
 };
 
+struct AiCustomWindow {
+    std::wstring label;
+    AiLimit limit;
+};
+
+struct AiCustomUsage {
+    std::wstring name;
+    std::wstring pillName;
+    std::wstring icon;
+    std::vector<AiCustomWindow> windows;
+    long long writtenAt = 0;
+};
+
+struct AiCustomEntry {
+    std::wstring name;
+    std::wstring pillName;
+    std::wstring file;
+    std::wstring icon;
+};
+
+constexpr int kAiCustomAction = 100;
+constexpr int kMaxCustomAi = 8;
+constexpr int kMaxCustomWindows = 6;
+constexpr int kAiCustomFilePick = -2;
+constexpr int kAiCustomEntryFilePick = -3;
+constexpr int kAiCustomEntryIconPick = -4;
+
 // Read while an island shows them, on the thread watching their files (see
 // AiUsageThreadProc), a moment after the first change (an answer writes
 // many times) and never sooner than a few seconds after the last read
@@ -79429,6 +79547,16 @@ struct AiUsage {
 // main island; the islands laid out again each minute (the time left goes
 // down).
 AiUsage g_aiUsage[kAiAgents];
+std::vector<AiCustomUsage> g_aiCustom;
+std::wstring g_aiCustomFile;
+std::vector<AiCustomEntry> g_aiCustomEntries;
+int g_aiCustomEntriesVersion = 0;
+void SetAiCustomFile(const std::wstring& path);
+void LoadAiCustomEntries();
+void SaveAiCustomEntries();
+HANDLE StartAiCustomFileThread(HWND panel,
+                               int purpose = kAiCustomFilePick,
+                               bool picture = false);
 constexpr UINT kAiUsageReadMs = 1000;
 constexpr UINT kAiUsageGapMs = 5000;
 constexpr UINT kAiUsageMinuteMs = 60 * 1000;
@@ -79876,6 +80004,195 @@ bool AiUsageKnown(const AiUsage& usage) {
     return usage.session.used >= 0 || usage.week.used >= 0;
 }
 
+bool ReadCustomAiUsage(const std::wstring& path,
+                       std::vector<AiCustomUsage>* out) {
+    out->clear();
+    std::wstring text;
+    long long writtenAt = 0;
+    Json root;
+    if (path.empty() || !IsLocalDrivePath(path) ||
+        !ReadFileEnd(path, 256 * 1024, &text, &writtenAt) ||
+        !JsonReader(text).Read(&root)) {
+        return false;
+    }
+    auto parseOne = [&](const Json& item) {
+        if (item.type != Json::Type::Object ||
+            item[L"name"].type != Json::Type::String ||
+            item[L"name"].string.empty() ||
+            item[L"windows"].type != Json::Type::Array) {
+            return;
+        }
+        AiCustomUsage custom;
+        custom.name = item[L"name"].string;
+        const Json& pill = item[L"pill_name"];
+        custom.pillName =
+            pill.type == Json::Type::String && !pill.string.empty()
+                ? pill.string
+                : custom.name;
+        const Json& icon = item[L"icon"];
+        if (icon.type == Json::Type::String && !icon.string.empty()) {
+            custom.icon = icon.string;
+        }
+        const long long itemAt = (long long)item[L"updated_at"].Number(0);
+        custom.writtenAt = itemAt > 0 ? itemAt : writtenAt;
+        for (const Json& w : item[L"windows"].items) {
+            if (w.type != Json::Type::Object) {
+                continue;
+            }
+            double used = w[L"used_percentage"].Number(-1);
+            if (used < 0 && w[L"used"].type == Json::Type::Number) {
+                used = w[L"used"].number;
+            }
+            if (used < 0) {
+                continue;
+            }
+            AiCustomWindow win;
+            if (w[L"label"].type == Json::Type::String) {
+                win.label = w[L"label"].string;
+            }
+            win.limit.used = std::clamp(used, 0.0, 100.0);
+            win.limit.resetsAt = (long long)w[L"resets_at"].Number(0);
+            if (win.limit.resetsAt > 100000000000LL) {
+                win.limit.resetsAt /= 1000;
+            }
+            custom.windows.push_back(std::move(win));
+            if ((int)custom.windows.size() >= kMaxCustomWindows) {
+                break;
+            }
+        }
+        if (!custom.windows.empty()) {
+            out->push_back(std::move(custom));
+        }
+    };
+    const Json* list = nullptr;
+    if (root.type == Json::Type::Array) {
+        list = &root;
+    } else if (root.type == Json::Type::Object &&
+               root[L"providers"].type == Json::Type::Array) {
+        list = &root[L"providers"];
+    }
+    if (list) {
+        for (const Json& item : list->items) {
+            parseOne(item);
+            if ((int)out->size() >= kMaxCustomAi) {
+                break;
+            }
+        }
+    } else {
+        parseOne(root);
+    }
+    return true;
+}
+
+const AiLimit* AiTightCustom(const AiCustomUsage& usage, long long now) {
+    const AiLimit* tight = nullptr;
+    double best = -1;
+    for (const auto& w : usage.windows) {
+        const double used = AiUsedNow(w.limit, now);
+        if (used > best) {
+            best = used;
+            tight = &w.limit;
+        }
+    }
+    return tight;
+}
+
+std::wstring TrimAiField(std::wstring text) {
+    const size_t first = text.find_first_not_of(L" \t\r\n");
+    if (first == std::wstring::npos) {
+        return {};
+    }
+    const size_t last = text.find_last_not_of(L" \t\r\n");
+    return text.substr(first, last - first + 1);
+}
+
+int FindAiCustomEntryIndex(const std::wstring& name) {
+    if (name.empty()) {
+        return -1;
+    }
+    for (size_t i = 0; i < g_aiCustomEntries.size(); i++) {
+        if (_wcsicmp(g_aiCustomEntries[i].name.c_str(), name.c_str()) == 0) {
+            return (int)i;
+        }
+    }
+    return -1;
+}
+
+void LoadAiCustomEntries() {
+    g_aiCustomEntries.clear();
+    for (const auto& r : LoadRecords(L"aiCustomList", 4, 64 * 1024, 4)) {
+        AiCustomEntry entry{TrimAiField(r[0]), TrimAiField(r[1]),
+                            TrimAiField(r[2]), TrimAiField(r[3])};
+        if (!entry.name.empty() || !entry.file.empty()) {
+            g_aiCustomEntries.push_back(std::move(entry));
+        }
+        if ((int)g_aiCustomEntries.size() >= kMaxCustomAi) {
+            break;
+        }
+    }
+    g_aiCustomEntriesVersion++;
+}
+
+void ReadAllCustomAiUsage(const std::wstring& mainFile,
+                          const std::vector<AiCustomEntry>& entries,
+                          std::vector<AiCustomUsage>* out,
+                          bool* anyRead) {
+    out->clear();
+    *anyRead = true;
+    auto readInto = [&](const std::wstring& path,
+                        const AiCustomEntry* owner) {
+        if (path.empty()) {
+            return;
+        }
+        std::vector<AiCustomUsage> part;
+        if (!ReadCustomAiUsage(path, &part)) {
+            if (GetFileAttributes(path.c_str()) != INVALID_FILE_ATTRIBUTES) {
+                *anyRead = false;
+            }
+            return;
+        }
+        for (auto& c : part) {
+            if (owner && part.size() == 1) {
+                if (!owner->name.empty()) {
+                    c.name = owner->name;
+                }
+                if (!owner->pillName.empty()) {
+                    c.pillName = owner->pillName;
+                }
+                if (!owner->icon.empty()) {
+                    c.icon = owner->icon;
+                }
+            }
+            if ((int)out->size() < kMaxCustomAi) {
+                out->push_back(std::move(c));
+            }
+        }
+    };
+    readInto(mainFile, nullptr);
+    for (const auto& entry : entries) {
+        if (!entry.file.empty() &&
+            _wcsicmp(entry.file.c_str(), mainFile.c_str()) != 0) {
+            readInto(entry.file, &entry);
+        }
+    }
+    for (const auto& entry : entries) {
+        if (entry.name.empty()) {
+            continue;
+        }
+        for (auto& c : *out) {
+            if (_wcsicmp(c.name.c_str(), entry.name.c_str()) == 0 ||
+                _wcsicmp(c.pillName.c_str(), entry.name.c_str()) == 0) {
+                if (!entry.pillName.empty()) {
+                    c.pillName = entry.pillName;
+                }
+                if (!entry.icon.empty()) {
+                    c.icon = entry.icon;
+                }
+            }
+        }
+    }
+}
+
 // Its color as it fills (-1 the text's).
 int AiUsageRgb(double used) {
     return used >= kAiUsageHigh   ? 0xFF453A
@@ -79904,8 +80221,7 @@ std::wstring AiTimeLeft(long long resetsAt, long long now) {
 
 // The pill's value: the tighter limit's use, and how long until it starts
 // over.
-std::wstring AiPillValue(const AiUsage& usage, long long now) {
-    const AiLimit& limit = AiTightLimit(usage, now);
+std::wstring AiPillLimitValue(const AiLimit& limit, long long now) {
     const double used = AiUsedNow(limit, now);
     if (used < 0) {
         return L"–";
@@ -79916,6 +80232,10 @@ std::wstring AiPillValue(const AiUsage& usage, long long now) {
         used > 0 ? AiTimeLeft(limit.resetsAt, now) : std::wstring();
     return left.empty() ? std::wstring(percent)
                         : std::wstring(percent) + L" · " + left;
+}
+
+std::wstring AiPillValue(const AiUsage& usage, long long now) {
+    return AiPillLimitValue(AiTightLimit(usage, now), now);
 }
 
 // When a limit starts over, as the clock shows a time (with the day when
@@ -79971,33 +80291,49 @@ constexpr UINT WM_APP_AI_USAGE = WM_APP + 101;
 // writes it, the ones read before are kept.
 struct AiUsageRead {
     bool claudeRead = false;
+    bool customRead = false;
     AiUsage claude;
     AiUsage codex;
+    std::vector<AiCustomUsage> custom;
 };
 
 // The folders their limits are written in, watched on a thread
 // (FindFirstChangeNotification, like the folders' panel): the mod's storage
-// (Claude Code's status line's file) and Codex's sessions (all of its days'
-// folders). Both read there, once at the start and a moment after the
-// first change of a burst (see kAiUsageGapMs), and posted to the island
-// (the files' reading never on its thread). A folder not there yet is left
-// out (see Island::OnAiUsageMinute).
+// (Claude Code's status line's file), Codex's sessions (all of its days'
+// folders) and the custom JSON file's folder. All read there, once at the
+// start and a moment after the first change of a burst (see kAiUsageGapMs),
+// and posted to the island (the files' reading never on its thread). A
+// folder not there yet is left out (see Island::OnAiUsageMinute).
 struct AiUsageJob {
     HWND notify;
     HANDLE stop;
-    std::wstring folders[kAiAgents];
+    std::wstring folders[kAiAgents + 1];
+    std::wstring customFile;
+    std::vector<std::wstring> extraFolders;
+    std::vector<AiCustomEntry> customEntries;
 };
 
 DWORD WINAPI AiUsageThreadProc(LPVOID parameter) {
     std::unique_ptr<AiUsageJob> job((AiUsageJob*)parameter);
-    HANDLE waits[1 + kAiAgents] = {job->stop};
+    HANDLE waits[MAXIMUM_WAIT_OBJECTS] = {job->stop};
     DWORD count = 1;
-    for (int agent = 0; agent < kAiAgents; agent++) {
-        if (job->folders[agent].empty()) {
+    for (int agent = 0; agent <= kAiAgents; agent++) {
+        if (job->folders[agent].empty() || count >= MAXIMUM_WAIT_OBJECTS) {
             continue;
         }
         const HANDLE change = FindFirstChangeNotification(
             job->folders[agent].c_str(), agent == (int)AiAgent::Codex,
+            FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE);
+        if (change != INVALID_HANDLE_VALUE) {
+            waits[count++] = change;
+        }
+    }
+    for (const auto& folder : job->extraFolders) {
+        if (folder.empty() || count >= MAXIMUM_WAIT_OBJECTS) {
+            continue;
+        }
+        const HANDLE change = FindFirstChangeNotification(
+            folder.c_str(), FALSE,
             FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE);
         if (change != INVALID_HANDLE_VALUE) {
             waits[count++] = change;
@@ -80022,6 +80358,8 @@ DWORD WINAPI AiUsageThreadProc(LPVOID parameter) {
                 GetFileAttributes(ClaudeUsageFile().c_str()) ==
                     INVALID_FILE_ATTRIBUTES;
             ReadCodexUsage(&read->codex);
+            ReadAllCustomAiUsage(job->customFile, job->customEntries,
+                                 &read->custom, &read->customRead);
             // (Not once it's being stopped.)
             if (WaitForSingleObject(job->stop, 0) != WAIT_TIMEOUT) {
                 break;
@@ -80054,11 +80392,12 @@ DWORD WINAPI AiUsageThreadProc(LPVOID parameter) {
 // session's and week's use as bars, with when each starts over; without its
 // limits, how to have them: for Claude Code, the line for the user's own
 // status line script is copied (Git Bash's or PowerShell's).
-class AiUsagePanel : public Panel {
+class AiUsagePanel : public EditingPanel {
    public:
     // The limits read again: shown at once if it's open.
     void Refresh() {
         if (IsOpen()) {
+            PrepareIcons();
             Layout();
             Render();
         }
@@ -80066,27 +80405,25 @@ class AiUsagePanel : public Panel {
 
    protected:
     void Prepare(float scale) override {
+        if (!m_wic) {
+            CoCreateInstance(CLSID_WICImagingFactory, nullptr,
+                             CLSCTX_INPROC_SERVER, IID_PPV_ARGS(m_wic.put()));
+        }
         if (scale != m_preparedScale || m_preparedFonts != FontsKey()) {
-            m_preparedScale = scale;
-            m_preparedFonts = FontsKey();
-            m_iconFormat = MakeFormat(IconFont(), DWRITE_FONT_WEIGHT_NORMAL,
-                                      20 * scale);
-            m_titleFormat =
-                MakeFormat(L"Segoe UI Variable Text",
-                           DWRITE_FONT_WEIGHT_SEMI_BOLD, 13 * scale,
-                           DWRITE_TEXT_ALIGNMENT_LEADING);
+            m_panelIconFormat = MakeFormat(IconFont(), DWRITE_FONT_WEIGHT_NORMAL,
+                                           20 * scale);
             m_nameFormat =
                 MakeFormat(L"Segoe UI Variable Text",
                            DWRITE_FONT_WEIGHT_SEMI_BOLD, 12 * scale,
                            DWRITE_TEXT_ALIGNMENT_LEADING);
-            m_textFormat =
+            m_rowFormat =
                 MakeFormat(L"Segoe UI Variable Text", DWRITE_FONT_WEIGHT_NORMAL,
                            11.5f * scale, DWRITE_TEXT_ALIGNMENT_LEADING);
             m_valueFormat =
                 MakeFormat(L"Segoe UI Variable Text",
                            DWRITE_FONT_WEIGHT_SEMI_BOLD, 11.5f * scale,
                            DWRITE_TEXT_ALIGNMENT_TRAILING);
-            m_smallFormat =
+            m_metaFormat =
                 MakeFormat(L"Segoe UI Variable Text", DWRITE_FONT_WEIGHT_NORMAL,
                            10.5f * scale, DWRITE_TEXT_ALIGNMENT_LEADING);
             m_updatedFormat =
@@ -80100,79 +80437,358 @@ class AiUsagePanel : public Panel {
                 m_helpFormat->SetParagraphAlignment(
                     DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
             }
-            m_buttonFormat =
+            m_pillBtnFormat =
                 MakeFormat(L"Segoe UI Variable Text", DWRITE_FONT_WEIGHT_NORMAL,
                            11 * scale, DWRITE_TEXT_ALIGNMENT_CENTER);
+            PrepareFormats(scale);
         }
+        PrepareIcons();
         Layout();
     }
 
     void OnOpen() override {
         m_hover = kNone;
+        m_hoverId = -1;
         m_copiedAt = -10;
+        m_editing = false;
+        m_customNote.clear();
         m_bash = GitBashFound();
+        PrepareIcons();
         Layout();
     }
 
     void Draw(ID2D1RenderTarget* target, ID2D1SolidColorBrush* brush) override {
-        if (m_iconFormat && m_titleFormat && m_nameFormat && m_textFormat &&
-            m_valueFormat && m_smallFormat && m_updatedFormat &&
-            m_helpFormat && m_buttonFormat) {
+        if (Ready() && m_panelIconFormat && m_nameFormat && m_rowFormat &&
+            m_valueFormat && m_metaFormat && m_updatedFormat && m_helpFormat &&
+            m_pillBtnFormat) {
             Walk(target, brush);
         }
     }
 
-    // ("Copied" said for a moment.)
+    bool StaysWhenDeactivated() const override {
+        return m_dialogShown || m_editing;
+    }
+
+    // ("Copied" said for a moment; caret blinks while editing.)
     bool AnimateContents(double) override {
-        return NowSeconds() - m_copiedAt < 2.2;
+        return AnimateTyping(m_editing, NowSeconds() - m_copiedAt < 2.2);
     }
 
     bool OnMouseMove(POINT pt) override {
-        const int hover = HitTest(pt);
-        if (hover == m_hover) {
+        int id = -1;
+        const int hover = HitTest(pt, &id);
+        if (hover == m_hover && id == m_hoverId) {
             return false;
         }
         m_hover = hover;
+        m_hoverId = id;
         return true;
     }
 
     bool OnMouseLeave() override {
-        if (m_hover == kNone) {
+        if (m_hover == kNone && m_hoverId == -1) {
             return false;
         }
         m_hover = kNone;
+        m_hoverId = -1;
         return true;
     }
 
-    bool OnMouseUp(POINT pt) override {
-        if (HitTest(pt) != kCopy) {
+    bool OnMouseDown(POINT pt) override {
+        if (!m_editing) {
             return false;
         }
-        // (Its file made first, only this account's.)
-        if (PrepareClaudeUsageFile() &&
-            CopyTextToClipboard(m_hwnd, ClaudeUsageLine(m_bash))) {
-            m_copiedAt = NowSeconds();
+        for (int field = 0; field < 3; field++) {
+            const D2D1_RECT_F& box = EditBoxOf(field);
+            if (PointInRect(pt, box)) {
+                m_field = field;
+                EditTextClick(EditTextOf(field), EditStateOf(field), pt);
+                g_lastTyped = NowSeconds();
+                return true;
+            }
         }
-        return true;
+        return false;
     }
+
+    bool OnMouseUp(POINT pt) override {
+        int id = -1;
+        const int hit = HitTest(pt, &id);
+        if (hit == kCopy) {
+            if (PrepareClaudeUsageFile() &&
+                CopyTextToClipboard(m_hwnd, ClaudeUsageLine(m_bash))) {
+                m_copiedAt = NowSeconds();
+            }
+            return true;
+        }
+        if (hit == kPickFile && !m_dialogShown) {
+            m_fileThread = StartAiCustomFileThread(m_hwnd);
+            m_dialogShown = m_fileThread != nullptr;
+            return false;
+        }
+        if (hit == kAddProvider) {
+            StartEditing(-1);
+            return true;
+        }
+        if (hit == kEditProvider && id >= 0 && id < (int)g_aiCustom.size()) {
+            const AiCustomUsage& custom = g_aiCustom[id];
+            const int idx = FindAiCustomEntryIndex(custom.name);
+            if (idx >= 0) {
+                StartEditing(idx);
+            } else {
+                StartEditing(-1);
+                m_editName = custom.name;
+                m_editPill = custom.pillName;
+                m_editIcon = custom.icon;
+                m_nameEdit.caret = m_editName.size();
+                m_pillEdit.caret = m_editPill.size();
+                PrepareIcons();
+                Layout();
+            }
+            return true;
+        }
+        if (hit == kPickEntryFile && !m_dialogShown) {
+            m_fileThread = StartAiCustomFileThread(
+                m_hwnd, kAiCustomEntryFilePick, false);
+            m_dialogShown = m_fileThread != nullptr;
+            return false;
+        }
+        if (hit == kClearEntryFile) {
+            m_editFile.clear();
+            m_fileEdit = {};
+            Layout();
+            return true;
+        }
+        if (hit == kPickEntryIcon && !m_dialogShown) {
+            m_fileThread = StartAiCustomFileThread(
+                m_hwnd, kAiCustomEntryIconPick, true);
+            m_dialogShown = m_fileThread != nullptr;
+            return false;
+        }
+        if (hit == kClearEntryIcon) {
+            m_editIcon.clear();
+            Layout();
+            return true;
+        }
+        if (hit == kCancelEdit) {
+            m_editing = false;
+            m_customNote.clear();
+            Layout();
+            return true;
+        }
+        if (hit == kSaveEdit) {
+            CommitEdit();
+            return true;
+        }
+        if (hit == kDeleteEdit && m_editIndex >= 0 &&
+            m_editIndex < (int)g_aiCustomEntries.size()) {
+            g_aiCustomEntries.erase(g_aiCustomEntries.begin() + m_editIndex);
+            m_editing = false;
+            m_customNote.clear();
+            SaveAiCustomEntries();
+            PrepareIcons();
+            Layout();
+            return true;
+        }
+        return false;
+    }
+
+    bool OnKey(WPARAM key) override {
+        if (!m_editing) {
+            return false;
+        }
+        if (key == VK_ESCAPE) {
+            m_editing = false;
+            m_customNote.clear();
+            Layout();
+            return true;
+        }
+        if (key == VK_TAB) {
+            const int step = GetKeyState(VK_SHIFT) < 0 ? 2 : 1;
+            m_field = (m_field + step) % 3;
+            g_lastTyped = NowSeconds();
+            return true;
+        }
+        return EditTextKey(EditTextOf(m_field), EditStateOf(m_field), key);
+    }
+
+    bool OnChar(WCHAR c) override {
+        if (!m_editing) {
+            return false;
+        }
+        if (c == L'\r' || c == 0x0A) {
+            CommitEdit();
+            return true;
+        }
+        if (c == 0x1B || c == L'\t') {
+            return false;
+        }
+        std::wstring& text = EditTextOf(m_field);
+        const bool taken =
+            c != L'\n' && EditTextChar(text, EditStateOf(m_field), c,
+                                       m_field == 2 ? MAX_PATH : 64, m_hwnd);
+        std::replace(text.begin(), text.end(), L'\n', L' ');
+        return taken;
+    }
+
+    bool OnAppMessage(UINT msg, WPARAM, LPARAM lParam) override;
+    void OnDestroy() override;
 
    private:
     static constexpr int kNone = -1;
     static constexpr int kCopy = 0;
-    static constexpr int kParts = 1;
+    static constexpr int kPickFile = 1;
+    static constexpr int kAddProvider = 2;
+    static constexpr int kPickEntryFile = 3;
+    static constexpr int kClearEntryFile = 4;
+    static constexpr int kPickEntryIcon = 5;
+    static constexpr int kClearEntryIcon = 6;
+    static constexpr int kCancelEdit = 7;
+    static constexpr int kSaveEdit = 8;
+    static constexpr int kDeleteEdit = 9;
+    static constexpr int kParts = 10;
+    static constexpr int kEditProvider = 100;
     static constexpr float kWidth = 320;
 
-    int HitTest(POINT pt) const {
+    std::wstring& EditTextOf(int field) {
+        return field == 0 ? m_editName : field == 1 ? m_editPill : m_editFile;
+    }
+    TextEdit& EditStateOf(int field) {
+        return field == 0 ? m_nameEdit : field == 1 ? m_pillEdit : m_fileEdit;
+    }
+    const D2D1_RECT_F& EditBoxOf(int field) const {
+        return field == 0 ? m_nameBox : field == 1 ? m_pillBox : m_fileBox;
+    }
+
+    void PrepareIcons() {
+        ID2D1RenderTarget* target = DrawingTarget();
+        if (!target || !m_wic) {
+            return;
+        }
+        std::vector<std::wstring> paths;
+        for (const auto& c : g_aiCustom) {
+            if (!c.icon.empty()) {
+                paths.push_back(c.icon);
+            }
+        }
+        if (!m_editIcon.empty()) {
+            paths.push_back(m_editIcon);
+        }
+        std::erase_if(m_icons, [&](const KeptAppIcon& icon) {
+            return std::find(paths.begin(), paths.end(), icon.appId) ==
+                   paths.end();
+        });
+        const double now = NowSeconds();
+        const int px = (int)std::round(24 * m_scale);
+        for (const std::wstring& path : paths) {
+            int misses = 0;
+            const auto kept = std::find_if(
+                m_icons.begin(), m_icons.end(),
+                [&](const KeptAppIcon& icon) { return icon.appId == path; });
+            if (kept != m_icons.end()) {
+                if (!kept->retryAt || now < kept->retryAt) {
+                    continue;
+                }
+                misses = kept->bitmap ? 0 : kept->misses + 1;
+                m_icons.erase(kept);
+            }
+            bool fromExplorer = false;
+            winrt::com_ptr<ID2D1Bitmap> bitmap =
+                LoadAppIcon(target, m_wic.get(), m_hwnd, path, px, &fromExplorer);
+            m_icons.push_back({path, bitmap,
+                               AppIconRetryAt(fromExplorer, !!bitmap, misses,
+                                              now),
+                               bitmap ? 0 : misses});
+        }
+    }
+
+    ID2D1Bitmap* IconOf(const std::wstring& path) const {
+        if (path.empty()) {
+            return nullptr;
+        }
+        for (const auto& icon : m_icons) {
+            if (icon.appId == path) {
+                return icon.bitmap.get();
+            }
+        }
+        return nullptr;
+    }
+
+    void StartEditing(int entryIndex) {
+        m_editing = true;
+        m_editIndex = entryIndex;
+        m_field = 0;
+        m_customNote.clear();
+        if (entryIndex >= 0 && entryIndex < (int)g_aiCustomEntries.size()) {
+            const auto& e = g_aiCustomEntries[entryIndex];
+            m_editName = e.name;
+            m_editPill = e.pillName;
+            m_editFile = e.file;
+            m_editIcon = e.icon;
+        } else {
+            m_editName.clear();
+            m_editPill.clear();
+            m_editFile.clear();
+            m_editIcon.clear();
+        }
+        m_nameEdit.Reset();
+        m_pillEdit.Reset();
+        m_fileEdit.Reset();
+        m_nameEdit.caret = m_editName.size();
+        m_pillEdit.caret = m_editPill.size();
+        m_fileEdit.caret = m_editFile.size();
+        g_lastTyped = NowSeconds();
+        PrepareIcons();
+        Layout();
+    }
+
+    void CommitEdit() {
+        AiCustomEntry entry{TrimAiField(m_editName), TrimAiField(m_editPill),
+                            TrimAiField(m_editFile), TrimAiField(m_editIcon)};
+        if (entry.name.empty() && entry.file.empty()) {
+            m_field = 0;
+            g_lastTyped = NowSeconds();
+            return;
+        }
+        if (!entry.file.empty() && !IsLocalDrivePath(entry.file)) {
+            m_customNote = Tr(L"Only a file on this computer",
+                              L"Só um arquivo deste computador");
+            m_field = 2;
+            Layout();
+            return;
+        }
+        if (m_editIndex >= 0 && m_editIndex < (int)g_aiCustomEntries.size()) {
+            g_aiCustomEntries[m_editIndex] = std::move(entry);
+        } else if (const int existing = FindAiCustomEntryIndex(entry.name);
+                   existing >= 0) {
+            g_aiCustomEntries[existing] = std::move(entry);
+        } else if ((int)g_aiCustomEntries.size() < kMaxCustomAi) {
+            g_aiCustomEntries.push_back(std::move(entry));
+        }
+        m_editing = false;
+        m_customNote.clear();
+        SaveAiCustomEntries();
+        PrepareIcons();
+        Layout();
+    }
+
+    int HitTest(POINT pt, int* idOut) const {
+        *idOut = -1;
         for (int part = 0; part < kParts; part++) {
             if (PointInRect(pt, m_parts[part])) {
                 return part;
+            }
+        }
+        for (size_t i = 0; i < m_providerEditRects.size(); i++) {
+            if (PointInRect(pt, m_providerEditRects[i])) {
+                *idOut = (int)i;
+                return kEditProvider;
             }
         }
         return kNone;
     }
 
     void Layout() {
-        if (!m_titleFormat || !m_helpFormat) {
+        if (!Ready() || !m_helpFormat) {
             return;
         }
         const float bottom = Walk(nullptr, nullptr);
@@ -80186,16 +80802,16 @@ class AiUsagePanel : public Panel {
         const float width = std::round(kWidth * s);
         const float padding = std::round(14 * s);
         const float right = width - padding;
+        const float gap = std::round(8 * s);
         const long long now = UnixNow();
         auto text = [&](const std::wstring& value, IDWriteTextFormat* format,
                         const D2D1_RECT_F& rect, const D2D1_COLOR_F& color) {
             if (target) {
                 brush->SetColor(color);
                 target->DrawText(value.c_str(), (UINT32)value.size(), format,
-                                 rect, brush);
+                                 rect, brush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
             }
         };
-        // A wrapped text's height.
         auto wrapped = [&](const std::wstring& value,
                            IDWriteTextFormat* format) {
             winrt::com_ptr<IDWriteTextLayout> layout;
@@ -80207,7 +80823,6 @@ class AiUsagePanel : public Panel {
             }
             return std::ceil(metrics.height);
         };
-        // A wrapped text under the ones before.
         float top = padding;
         auto paragraph = [&](const std::wstring& value,
                              IDWriteTextFormat* format, D2D1_COLOR_F color) {
@@ -80216,7 +80831,6 @@ class AiUsagePanel : public Panel {
             text(value, format, {padding, top, right, top + height}, color);
             top += height;
         };
-        // A button as wide as the panel's text.
         auto button = [&](int part, PCWSTR label) {
             top += std::round(8 * s);
             const float height = std::round(28 * s);
@@ -80227,23 +80841,254 @@ class AiUsagePanel : public Panel {
                 brush->SetColor(Fg(0.1f + 0.08f * lit));
                 GlassFill(target, {m_parts[part], radius, radius}, brush);
             }
-            text(label, m_buttonFormat.get(), m_parts[part], Fg(0.9f));
+            text(label, m_pillBtnFormat.get(), m_parts[part], Fg(0.9f));
             top += height;
         };
         for (D2D1_RECT_F& part : m_parts) {
             part = {};
         }
+        m_providerEditRects.clear();
+        m_nameBox = m_pillBox = m_fileBox = {};
         const float icon = std::round(28 * s);
         if (target) {
             const WCHAR glyph = kGlyphAiUsage;
             brush->SetColor(Fg(0.95f));
-            DrawGlyph(target, &glyph, 1, m_iconFormat.get(),
+            DrawGlyph(target, &glyph, 1, m_panelIconFormat.get(),
                       {padding, top, padding + icon, top + icon}, brush);
         }
+        if (m_editing) {
+            text(Tr(L"Add provider", L"Incluir provedor"), m_titleFormat.get(),
+                 {padding + icon + std::round(6 * s), top, right, top + icon},
+                 Fg(0.95f));
+            top += icon + std::round(10 * s);
+            const float labelH = std::round(16 * s);
+            const float boxH = std::round(34 * s);
+            const float btnH = std::round(30 * s);
+            auto fieldLabel = [&](PCWSTR label) {
+                text(label, m_metaFormat.get(),
+                     {padding + std::round(2 * s), top, right, top + labelH},
+                     Fg(0.6f));
+                top += labelH + std::round(3 * s);
+            };
+            fieldLabel(Tr(L"Name", L"Nome"));
+            m_nameBox = {padding, top, right, top + boxH};
+            if (target) {
+                DrawTextBox(target, brush, m_nameBox, m_editName, m_nameEdit,
+                            Tr(L"Name", L"Nome"), m_field == 0);
+            }
+            top += boxH + gap;
+            fieldLabel(Tr(L"Short name", L"Nome curto"));
+            m_pillBox = {padding, top, right, top + boxH};
+            if (target) {
+                DrawTextBox(target, brush, m_pillBox, m_editPill, m_pillEdit,
+                            Tr(L"Short name", L"Nome curto"), m_field == 1);
+            }
+            top += boxH + gap;
+            fieldLabel(Tr(L"JSON file", L"Arquivo JSON"));
+            const float pickW = std::round(86 * s);
+            const float clearW = !m_editFile.empty() ? btnH + std::round(4 * s) : 0;
+            m_fileBox = {padding, top, right - pickW - clearW - gap, top + boxH};
+            m_parts[kPickEntryFile] = {right - pickW - clearW, top,
+                                       right - clearW, top + boxH};
+            if (!m_editFile.empty()) {
+                m_parts[kClearEntryFile] = {right - btnH, top + (boxH - btnH) / 2,
+                                            right, top + (boxH + btnH) / 2};
+            }
+            if (target) {
+                DrawTextBox(target, brush, m_fileBox, m_editFile, m_fileEdit,
+                            L"JSON", m_field == 2);
+                DrawButton(target, brush, m_parts[kPickEntryFile],
+                           Tr(L"Choose...", L"Escolha..."), false,
+                           m_hover == kPickEntryFile,
+                           m_dialogShown ? 0.5f : 1.0f);
+                if (!m_editFile.empty()) {
+                    DrawIconButton(target, brush, m_parts[kClearEntryFile],
+                                   0xE711, m_hover == kClearEntryFile, 0.6f);
+                }
+            }
+            top += boxH + gap;
+            fieldLabel(Tr(L"Icon", L"Ícone"));
+            const float clearIconW = !m_editIcon.empty() ? btnH + std::round(4 * s) : 0;
+            const D2D1_RECT_F iconRow{padding, top,
+                                      right - pickW - clearIconW - gap,
+                                      top + boxH};
+            m_parts[kPickEntryIcon] = {right - pickW - clearIconW, top,
+                                       right - clearIconW, top + boxH};
+            if (!m_editIcon.empty()) {
+                m_parts[kClearEntryIcon] = {right - btnH,
+                                            top + (boxH - btnH) / 2, right,
+                                            top + (boxH + btnH) / 2};
+            }
+            if (target) {
+                const float r = std::round(9 * s);
+                brush->SetColor(Fg(0.06f));
+                GlassFill(target, {iconRow, r, r}, brush);
+                float tx = iconRow.left + std::round(10 * s);
+                if (ID2D1Bitmap* bmp = IconOf(m_editIcon)) {
+                    const float p = std::round(20 * s);
+                    const float cy = (iconRow.top + iconRow.bottom) / 2;
+                    DrawBitmapSmooth(target, bmp,
+                                     {tx, cy - p / 2, tx + p, cy + p / 2});
+                    tx += p + std::round(8 * s);
+                }
+                const std::wstring iconLabel =
+                    m_editIcon.empty()
+                        ? std::wstring(Tr(L"Pictures", L"Imagens"))
+                        : std::wstring(PathFindFileName(m_editIcon.c_str()));
+                text(iconLabel, m_rowFormat.get(),
+                     {tx, iconRow.top, iconRow.right - std::round(8 * s),
+                      iconRow.bottom},
+                     m_editIcon.empty() ? Fg(0.45f) : Fg(0.9f));
+                DrawButton(target, brush, m_parts[kPickEntryIcon],
+                           Tr(L"Choose...", L"Escolha..."), false,
+                           m_hover == kPickEntryIcon,
+                           m_dialogShown ? 0.5f : 1.0f);
+                if (!m_editIcon.empty()) {
+                    DrawIconButton(target, brush, m_parts[kClearEntryIcon],
+                                   0xE711, m_hover == kClearEntryIcon, 0.6f);
+                }
+            }
+            top += boxH;
+            if (!m_customNote.empty()) {
+                paragraph(m_customNote, m_helpFormat.get(),
+                          RgbColor(0xFF453A, 0.95f));
+            }
+            top += std::round(12 * s);
+            const float delW = m_editIndex >= 0 ? btnH + gap : 0;
+            const float half =
+                std::floor((right - padding - delW - gap) / 2);
+            m_parts[kCancelEdit] = {padding, top, padding + half, top + btnH};
+            if (m_editIndex >= 0) {
+                m_parts[kDeleteEdit] = {padding + half + gap, top,
+                                        padding + half + gap + btnH,
+                                        top + btnH};
+            }
+            m_parts[kSaveEdit] = {right - half, top, right, top + btnH};
+            if (target) {
+                DrawButton(target, brush, m_parts[kCancelEdit],
+                           Tr(L"Cancel", L"Cancelar"), false,
+                           m_hover == kCancelEdit);
+                if (m_editIndex >= 0) {
+                    DrawIconButton(target, brush, m_parts[kDeleteEdit], 0xE74D,
+                                   m_hover == kDeleteEdit, 0.65f);
+                }
+                DrawButton(target, brush, m_parts[kSaveEdit],
+                           Tr(L"Save", L"Salvar"), true,
+                           m_hover == kSaveEdit);
+            }
+            top += btnH;
+            return top + padding;
+        }
+        const float addBtnW = std::round(124 * s);
+        const float addBtnH = std::round(24 * s);
+        m_parts[kAddProvider] = {right - addBtnW, top + (icon - addBtnH) / 2,
+                                 right, top + (icon + addBtnH) / 2};
         text(Tr(L"AI usage", L"Uso de IA"), m_titleFormat.get(),
-             {padding + icon + std::round(6 * s), top, right, top + icon},
+             {padding + icon + std::round(6 * s), top,
+              m_parts[kAddProvider].left - std::round(6 * s), top + icon},
              Fg(0.95f));
+        if (target) {
+            const float lit = Hover(HoverKey(7400, kAddProvider),
+                                    m_hover == kAddProvider);
+            const float r = addBtnH / 2;
+            brush->SetColor(Fg(0.1f + 0.08f * lit));
+            GlassFill(target, {m_parts[kAddProvider], r, r}, brush);
+            text((std::wstring(L"+ ") +
+                  Tr(L"Add provider", L"Incluir provedor"))
+                     .c_str(),
+                 m_pillBtnFormat.get(), m_parts[kAddProvider], Fg(0.9f));
+        }
         top += icon;
+        auto drawHeader = [&](const std::wstring& name,
+                              const std::wstring& iconPath,
+                              long long writtenAt, int customIndex) {
+            top += std::round(12 * s);
+            const float nameHeight = std::round(18 * s);
+            float nameLeft = padding;
+            if (ID2D1Bitmap* bmp = IconOf(iconPath)) {
+                const float p = std::round(15 * s);
+                const float cy = top + nameHeight / 2;
+                if (target) {
+                    DrawBitmapSmooth(target, bmp,
+                                     {padding, cy - p / 2, padding + p,
+                                      cy + p / 2});
+                }
+                nameLeft += p + std::round(6 * s);
+            }
+            float updRight = right;
+            if (customIndex >= 0) {
+                const float eb = std::round(18 * s);
+                const D2D1_RECT_F editRect{right - eb, top, right,
+                                           top + nameHeight};
+                m_providerEditRects.push_back(editRect);
+                if (target) {
+                    const float lit = Hover(
+                        HoverKey(7420, customIndex),
+                        m_hover == kEditProvider && m_hoverId == customIndex);
+                    if (lit > 0.01f) {
+                        brush->SetColor(Fg(0.12f * lit));
+                        GlassFill(target, {editRect, eb / 2, eb / 2}, brush);
+                    }
+                    brush->SetColor(Fg(0.45f + 0.5f * lit));
+                    const WCHAR glyph = kGlyphPencil;
+                    DrawGlyph(target, &glyph, 1, m_iconFormat.get(),
+                              editRect, brush);
+                }
+                updRight = right - eb - std::round(4 * s);
+            }
+            const D2D1_RECT_F nameRow{nameLeft, top, updRight, top + nameHeight};
+            text(name, m_nameFormat.get(), nameRow, Fg(0.95f));
+            if (writtenAt > 0) {
+                text(AiUpdatedText(writtenAt, now), m_updatedFormat.get(),
+                     nameRow, Fg(0.5f));
+            }
+            top += nameHeight;
+        };
+        auto drawLimit = [&](const std::wstring& label, const AiLimit& limit) {
+            const double used = AiUsedNow(limit, now);
+            if (used < 0) {
+                return;
+            }
+            top += std::round(6 * s);
+            const float row = std::round(16 * s);
+            const D2D1_RECT_F labelRow{padding, top, right, top + row};
+            text(label, m_rowFormat.get(), labelRow, Fg(0.7f));
+            WCHAR percent[16];
+            swprintf_s(percent, L"%.0f%%", used);
+            const int rgb = AiUsageRgb(used);
+            text(percent, m_valueFormat.get(), labelRow,
+                 rgb >= 0 ? RgbColor(rgb, 1) : Fg(0.95f));
+            top += row + std::round(4 * s);
+            const float thickness = std::round(6 * s);
+            if (target) {
+                const D2D1_RECT_F track{padding, top, right, top + thickness};
+                brush->SetColor(Fg(0.12f));
+                target->FillRoundedRectangle(
+                    {track, thickness / 2, thickness / 2}, brush);
+                const float fill =
+                    (float)(used / 100) * (track.right - track.left);
+                if (fill > 0.5f) {
+                    brush->SetColor(rgb >= 0 ? RgbColor(rgb, 1) : Accent(1));
+                    target->FillRoundedRectangle(
+                        {{track.left, track.top,
+                          track.left + std::max(fill, thickness),
+                          track.bottom},
+                         thickness / 2,
+                         thickness / 2},
+                        brush);
+                }
+            }
+            top += thickness;
+            const std::wstring left = AiTimeLeft(limit.resetsAt, now);
+            if (!left.empty()) {
+                const float line = std::round(16 * s);
+                text(std::wstring(Tr(L"Starts over in", L"Recomeça em")) +
+                         L" " + left + L" · " + AiResetTime(limit.resetsAt),
+                     m_metaFormat.get(), {padding, top, right, top + line},
+                     Fg(0.5f));
+                top += line;
+            }
+        };
         bool any = false;
         for (int agent = 0; agent < kAiAgents; agent++) {
             if (!AiAgentOn(agent)) {
@@ -80252,66 +81097,10 @@ class AiUsagePanel : public Panel {
             any = true;
             const AiUsage& usage = g_aiUsage[agent];
             const bool claude = agent == (int)AiAgent::Claude;
-            top += std::round(12 * s);
-            const float nameHeight = std::round(18 * s);
-            const D2D1_RECT_F nameRow{padding, top, right, top + nameHeight};
-            text(AiAgentName(agent), m_nameFormat.get(), nameRow, Fg(0.95f));
-            if (usage.writtenAt > 0) {
-                text(AiUpdatedText(usage.writtenAt, now), m_updatedFormat.get(),
-                     nameRow, Fg(0.5f));
-            }
-            top += nameHeight;
-            for (const AiLimit* limit : {&usage.session, &usage.week}) {
-                const double used = AiUsedNow(*limit, now);
-                if (used < 0) {
-                    continue;
-                }
-                top += std::round(6 * s);
-                const float row = std::round(16 * s);
-                const D2D1_RECT_F labelRow{padding, top, right, top + row};
-                text(limit == &usage.session
-                         ? Tr(L"5-hour session", L"Sessão de 5 horas")
-                         : Tr(L"Week", L"Semana"),
-                     m_textFormat.get(), labelRow, Fg(0.7f));
-                WCHAR percent[16];
-                swprintf_s(percent, L"%.0f%%", used);
-                const int rgb = AiUsageRgb(used);
-                text(percent, m_valueFormat.get(), labelRow,
-                     rgb >= 0 ? RgbColor(rgb, 1) : Fg(0.95f));
-                top += row + std::round(4 * s);
-                const float thickness = std::round(6 * s);
-                if (target) {
-                    const D2D1_RECT_F track{padding, top, right,
-                                            top + thickness};
-                    brush->SetColor(Fg(0.12f));
-                    target->FillRoundedRectangle(
-                        {track, thickness / 2, thickness / 2}, brush);
-                    const float fill =
-                        (float)(used / 100) * (track.right - track.left);
-                    if (fill > 0.5f) {
-                        brush->SetColor(rgb >= 0 ? RgbColor(rgb, 1)
-                                                 : Accent(1));
-                        target->FillRoundedRectangle(
-                            {{track.left, track.top,
-                              track.left + std::max(fill, thickness),
-                              track.bottom},
-                             thickness / 2,
-                             thickness / 2},
-                            brush);
-                    }
-                }
-                top += thickness;
-                const std::wstring left = AiTimeLeft(limit->resetsAt, now);
-                if (!left.empty()) {
-                    const float line = std::round(16 * s);
-                    text(std::wstring(Tr(L"Starts over in", L"Recomeça em")) +
-                             L" " + left + L" · " +
-                             AiResetTime(limit->resetsAt),
-                         m_smallFormat.get(), {padding, top, right, top + line},
-                         Fg(0.5f));
-                    top += line;
-                }
-            }
+            drawHeader(AiAgentName(agent), {}, usage.writtenAt, -1);
+            drawLimit(Tr(L"5-hour session", L"Sessão de 5 horas"),
+                      usage.session);
+            drawLimit(Tr(L"Week", L"Semana"), usage.week);
             const bool known = AiUsageKnown(usage);
             if (!claude) {
                 if (!known) {
@@ -80362,30 +81151,77 @@ class AiUsagePanel : public Panel {
                                   : Tr(L"Copy the line", L"Copiar a linha"));
             }
         }
+        if (g_settings.islandAiCustom) {
+            any = true;
+            if (!g_aiCustom.empty()) {
+                for (size_t i = 0; i < g_aiCustom.size(); i++) {
+                    const auto& custom = g_aiCustom[i];
+                    drawHeader(custom.name, custom.icon, custom.writtenAt,
+                               (int)i);
+                    for (const auto& w : custom.windows) {
+                        drawLimit(w.label.empty() ? Tr(L"Usage", L"Uso")
+                                                  : w.label,
+                                  w.limit);
+                    }
+                }
+            } else {
+                drawHeader(Tr(L"Custom (JSON file)",
+                              L"Personalizado (arquivo JSON)"),
+                           {}, 0, -1);
+                paragraph(
+                    !m_customNote.empty() ? m_customNote
+                    : g_aiCustomFile.empty()
+                        ? Tr(L"Point to a JSON file with \"name\" and "
+                             L"\"windows\" (or a list of them) to show other "
+                             L"services here",
+                             L"Aponte um arquivo JSON com \"name\" e "
+                             L"\"windows\" (ou uma lista deles) para mostrar "
+                             L"outros serviços aqui")
+                        : Tr(L"Waiting for valid data in the chosen file",
+                             L"Aguardando dados válidos no arquivo escolhido"),
+                    m_helpFormat.get(), Fg(0.6f));
+                button(kPickFile,
+                       Tr(L"Choose a JSON file", L"Escolha um arquivo JSON"));
+            }
+        }
         if (!any) {
-            paragraph(Tr(L"Turn on Claude Code or Codex in the settings",
-                         L"Ligue o Claude Code ou o Codex nas configurações"),
-                      m_helpFormat.get(), Fg(0.6f));
+            paragraph(
+                Tr(L"Turn on Claude Code, Codex or Custom in the settings",
+                   L"Ligue o Claude Code, o Codex ou o Personalizado nas "
+                   L"configurações"),
+                m_helpFormat.get(), Fg(0.6f));
         }
         return top + padding;
     }
 
-    winrt::com_ptr<IDWriteTextFormat> m_iconFormat;
-    winrt::com_ptr<IDWriteTextFormat> m_titleFormat;
+    winrt::com_ptr<IWICImagingFactory> m_wic;
+    std::vector<KeptAppIcon> m_icons;
+    winrt::com_ptr<IDWriteTextFormat> m_panelIconFormat;
     winrt::com_ptr<IDWriteTextFormat> m_nameFormat;
-    winrt::com_ptr<IDWriteTextFormat> m_textFormat;
+    winrt::com_ptr<IDWriteTextFormat> m_rowFormat;
     winrt::com_ptr<IDWriteTextFormat> m_valueFormat;
-    winrt::com_ptr<IDWriteTextFormat> m_smallFormat;
+    winrt::com_ptr<IDWriteTextFormat> m_metaFormat;
     winrt::com_ptr<IDWriteTextFormat> m_updatedFormat;
     winrt::com_ptr<IDWriteTextFormat> m_helpFormat;
-    winrt::com_ptr<IDWriteTextFormat> m_buttonFormat;
-    float m_preparedScale = 0;
+    winrt::com_ptr<IDWriteTextFormat> m_pillBtnFormat;
     D2D1_RECT_F m_parts[kParts]{};
+    std::vector<D2D1_RECT_F> m_providerEditRects;
+    D2D1_RECT_F m_nameBox{}, m_pillBox{}, m_fileBox{};
     int m_hover = kNone;
+    int m_hoverId = -1;
     double m_copiedAt = -10;
-    // Whether Git Bash runs Claude Code's status line (which line is
-    // copied), looked at as it opens.
     bool m_bash = false;
+    HANDLE m_fileThread = nullptr;
+    bool m_dialogShown = false;
+    std::wstring m_customNote;
+    bool m_editing = false;
+    int m_editIndex = -1;
+    int m_field = 0;
+    std::wstring m_editName;
+    std::wstring m_editPill;
+    std::wstring m_editFile;
+    std::wstring m_editIcon;
+    TextEdit m_nameEdit, m_pillEdit, m_fileEdit;
 };
 
 // The other apps' tray icons that aren't pinned, opened from the arrow when
@@ -84590,6 +85426,8 @@ struct FolderPickJob {
     int saved = 0;
     // A sound file instead (an event's of Faísca's, `purpose`).
     bool sound = false;
+    // A JSON file instead (custom AI usage).
+    bool json = false;
 };
 
 // What the settings' icon jobs are for (FolderPickJob::purpose; a
@@ -84610,17 +85448,23 @@ DWORD WINAPI FolderPickThreadProc(LPVOID parameter) {
         dialog->GetOptions(&options);
         dialog->SetOptions(
             options | FOS_FORCEFILESYSTEM |
-            (job->picture || job->sound ? 0 : FOS_PICKFOLDERS));
+            (job->picture || job->sound || job->json ? 0 : FOS_PICKFOLDERS));
         if (job->picture) {
             const COMDLG_FILTERSPEC filters[] = {
                 {Tr(L"Pictures", L"Imagens"),
-                 L"*.png;*.svg;*.ico;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff"}};
+                 L"*.png;*.svg;*.ico;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff;*.webp;*.exe"}};
             dialog->SetFileTypes(ARRAYSIZE(filters), filters);
         }
         if (job->sound) {
             const COMDLG_FILTERSPEC filters[] = {
                 {Tr(L"Sound files", L"Arquivos de som"),
                  L"*.wav;*.mp3;*.m4a;*.aac;*.wma;*.flac"}};
+            dialog->SetFileTypes(ARRAYSIZE(filters), filters);
+        }
+        if (job->json) {
+            const COMDLG_FILTERSPEC filters[] = {
+                {L"JSON", L"*.json"},
+                {Tr(L"All files", L"Todos os arquivos"), L"*.*"}};
             dialog->SetFileTypes(ARRAYSIZE(filters), filters);
         }
         dialog->SetTitle(job->title);
@@ -84645,6 +85489,59 @@ DWORD WINAPI FolderPickThreadProc(LPVOID parameter) {
         delete job;
     }
     return 0;
+}
+
+HANDLE StartAiCustomFileThread(HWND panel, int purpose, bool picture) {
+    auto* job = new FolderPickJob{
+        panel,
+        picture ? Tr(L"Pictures", L"Imagens")
+                : Tr(L"Choose a JSON file", L"Escolha um arquivo JSON"),
+        purpose, {}, picture, 0, false, !picture};
+    HANDLE thread =
+        CreateThread(nullptr, 0, FolderPickThreadProc, job, 0, nullptr);
+    if (!thread) {
+        delete job;
+    }
+    return thread;
+}
+
+void AiUsagePanel::OnDestroy() {
+    EndFileDialogThread(&m_fileThread);
+    MSG msg;
+    while (m_hwnd && PeekMessage(&msg, m_hwnd, WM_APP_FOLDER_PICKED,
+                                 WM_APP_FOLDER_PICKED, PM_REMOVE)) {
+        delete (FolderPickJob*)msg.lParam;
+    }
+}
+
+bool AiUsagePanel::OnAppMessage(UINT msg, WPARAM, LPARAM lParam) {
+    if (msg != WM_APP_FOLDER_PICKED) {
+        return false;
+    }
+    EndFileDialogThread(&m_fileThread);
+    m_dialogShown = false;
+    std::unique_ptr<FolderPickJob> job((FolderPickJob*)lParam);
+    if (job->path.empty()) {
+        // (Canceled.)
+    } else if (!IsLocalDrivePath(job->path)) {
+        m_customNote = Tr(L"Only a file on this computer",
+                          L"Só um arquivo deste computador");
+    } else {
+        m_customNote.clear();
+        if (job->purpose == kAiCustomEntryFilePick) {
+            m_editFile = job->path;
+            m_fileEdit.Reset();
+            m_fileEdit.caret = m_editFile.size();
+        } else if (job->purpose == kAiCustomEntryIconPick) {
+            m_editIcon = job->path;
+            PrepareIcons();
+        } else {
+            SetAiCustomFile(job->path);
+        }
+    }
+    Layout();
+    Render();
+    return true;
 }
 
 // Windows' icons saved into a folder (see SaveWindowsIcons: a few hundred
@@ -93983,6 +94880,9 @@ class Island final : public DropTarget::Receiver {
     HANDLE m_aiUsageThread = nullptr;
     HANDLE m_aiUsageStop = nullptr;
     bool m_aiCodexWatched = false;
+    bool m_aiCustomWatched = false;
+    std::wstring m_aiCustomFileWatched;
+    int m_aiCustomEntriesWatched = -1;
     std::wstring AiAgentApp(int agent);
     SideText m_aiTexts[kAiAgents];
     // Status notices (see ShowStatusNotice): what was seen last (-1 not
@@ -97628,6 +98528,23 @@ void ControlPanel::StartIconPictureDialog(WCHAR glyph) {
 // A sound file chosen for an event with Windows' file dialog (the icons'
 // dialog thread, see FolderPickThreadProc; the answer is handled with the
 // icons', where WM_APP_FOLDER_PICKED is).
+D2D1_RECT_F AiCustomButtonRect(const D2D1_RECT_F& row, float s) {
+    const float toggleLeft =
+        row.right - std::round(8 * s) - std::round(36 * s);
+    const float h = std::round(26 * s);
+    const float mid = (row.top + row.bottom) / 2;
+    return {toggleLeft - std::round(8 * s) - std::round(96 * s), mid - h / 2,
+            toggleLeft - std::round(8 * s), mid + h / 2};
+}
+
+void ControlPanel::StartAiCustomFileDialog() {
+    if (m_dialogShown) {
+        return;
+    }
+    m_iconThread = StartAiCustomFileThread(m_hwnd);
+    m_dialogShown = m_iconThread != nullptr;
+}
+
 void ControlPanel::StartPetSoundFileDialog(int sound) {
     if (m_dialogShown) {
         return;
@@ -99891,7 +100808,10 @@ float ControlPanel::SettingHeight(const SettingEntry& entry,
         case SettingKind::Order:
             return std::round(66 * s);
         case SettingKind::Pref:
-            return beside(std::round(52 * s), 34);
+            return beside(
+                std::round(
+                    (entry.value == (int)IslandPref::AiCustom ? 156 : 52) * s),
+                34);
         case SettingKind::Shortcut:
         case SettingKind::PetName:
             return beside(std::round(176 * s), 34);
@@ -100253,6 +101173,9 @@ std::wstring ControlPanel::SettingName(const SettingEntry& entry) const {
                            L"LGUG2Z.whkd)",
                            L" · o whkd não está instalado (winget install "
                            L"LGUG2Z.whkd)");
+            }
+            if (pref == IslandPref::AiCustom && !m_aiCustomStatus.empty()) {
+                name += L" · " + m_aiCustomStatus;
             }
             return name;
         }
@@ -101028,6 +101951,9 @@ std::wstring ControlPanel::SettingDescription(const SettingEntry& entry) const {
         {SettingKind::Pref, (int)IslandPref::AiCodex,
          L"What Codex writes in its logs on this PC",
          L"O que o Codex escreve nos logs dele neste PC"},
+        {SettingKind::Pref, (int)IslandPref::AiCustom,
+         L"Reads limits from a JSON file on this PC ({\"name\", \"windows\"})",
+         L"Lê os limites de um arquivo JSON neste PC ({\"name\", \"windows\"})"},
         {SettingKind::Pref, (int)IslandPref::FocusedTitle,
          L"Also shows the title of the window in focus, like the page or the "
          L"file open in it",
@@ -103033,6 +103959,8 @@ void ControlPanel::LayoutSettings() {
              kSectionTools, 1},
             {(int)SettingKind::Pref, (int)IslandPref::AiCodex,
              kSectionTools, 1},
+            {(int)SettingKind::Pref, (int)IslandPref::AiCustom,
+             kSectionTools, 1},
             {(int)SettingKind::Pref, (int)IslandPref::Commands, kSectionTools},
             {(int)SettingKind::Pref, (int)IslandPref::Launcher, kSectionTools},
             {(int)SettingKind::Label, 0, kSectionActions},
@@ -104469,6 +105397,11 @@ ControlPanel::Hit ControlPanel::HitTest(POINT pt) const {
                     break;
                 case SettingKind::Pref:
                     if (!PrefDisabled((IslandPref)entry.value)) {
+                        if (entry.value == (int)IslandPref::AiCustom &&
+                            PointInRect(list,
+                                        AiCustomButtonRect(entry.rect, m_scale))) {
+                            return {Part::AiCustomFile};
+                        }
                         return {Part::SettingToggle, entry.value};
                     }
                     return {Part::DisabledSetting, entry.value};
@@ -107203,6 +108136,7 @@ std::wstring ControlPanel::DisabledReason(int index) {
             return needs(IslandPref::PetCare);
         case IslandPref::AiClaude:
         case IslandPref::AiCodex:
+        case IslandPref::AiCustom:
             return needs(IslandPref::AiUsage);
         case IslandPref::CountdownTimer:
         case IslandPref::CountdownPomodoro:
@@ -107650,6 +108584,7 @@ ControlPanel::SettingTarget ControlPanel::DisabledTarget(int index) {
             return pref(IslandPref::PetCare);
         case IslandPref::AiClaude:
         case IslandPref::AiCodex:
+        case IslandPref::AiCustom:
             return pref(IslandPref::AiUsage);
         case IslandPref::CountdownTimer:
         case IslandPref::CountdownPomodoro:
@@ -109521,7 +110456,26 @@ void ControlPanel::DrawSettingEntry(ID2D1RenderTarget* target,
                     std::round((row.top + row.bottom - toggleHeight) / 2) +
                         toggleHeight};
                 const float opacity = disabled ? 0.4f : 1.0f;
-                label(row, info.glyph, toggle.left, Fg(0.95f * opacity));
+                const bool custom = pref == IslandPref::AiCustom;
+                const D2D1_RECT_F pick = AiCustomButtonRect(row, s);
+                label(row, info.glyph, custom ? pick.left : toggle.left,
+                      Fg(0.95f * opacity));
+                if (custom) {
+                    const float radius = (pick.bottom - pick.top) / 2;
+                    const float lit =
+                        Hover(pick, !disabled &&
+                                        m_hover.part == Part::AiCustomFile);
+                    brush->SetColor(Fg((0.08f + 0.06f * lit) * opacity));
+                    GlassFill(target, {pick, radius, radius}, brush);
+                    brush->SetColor(Fg(0.9f * opacity));
+                    const std::wstring btnText =
+                        g_aiCustomFile.empty()
+                            ? Tr(L"Choose...", L"Escolher...")
+                            : std::wstring(
+                                  PathFindFileName(g_aiCustomFile.c_str()));
+                    DrawMarquee(target, brush, btnText, m_smallFormat.get(),
+                                pick, true);
+                }
                 winrt::com_ptr<ID2D1Layer> layer;
                 if (disabled) {
                     layer = LayerFor(target, kLayerRow);
@@ -112471,6 +113425,9 @@ bool ControlPanel::OnMouseUp(POINT pt) {
         case Part::PetName:
             StartPetNameEdit();
             return true;
+        case Part::AiCustomFile:
+            StartAiCustomFileDialog();
+            return true;
         case Part::ProfileName:
             m_profileTyping = true;
             return true;
@@ -113179,6 +114136,23 @@ bool ControlPanel::OnAppMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
         CloseHandle(m_iconThread);
         m_iconThread = nullptr;
         std::unique_ptr<FolderPickJob> job((FolderPickJob*)lParam);
+        if (job->json) {
+            if (job->path.empty()) {
+                // (Canceled.)
+            } else if (!IsLocalDrivePath(job->path)) {
+                m_aiCustomStatus = Tr(L"Only a file on this computer",
+                                      L"Só um arquivo deste computador");
+            } else {
+                m_aiCustomStatus.clear();
+                SetAiCustomFile(job->path);
+                if (!g_settings.islandAiCustom) {
+                    SetIslandPref(IslandPref::AiCustom, 1);
+                }
+            }
+            SetForegroundWindow(m_hwnd);
+            Layout();
+            return true;
+        }
         if (job->sound) {
             // A sound for an event: a file on this computer, kept and heard.
             if (job->path.empty()) {
@@ -115886,6 +116860,17 @@ const std::wstring& NotificationPanel::AppName(const std::wstring& appId) {
 
 // An app's icon (or a file's, a folder's) from the shell, in the island's
 // process (see LoadAppIconBitmap), at `size` pixels.
+bool IsPictureFilePath(const std::wstring& path) {
+    const size_t dot = path.rfind(L'.');
+    if (dot == std::wstring::npos || !IsLocalDrivePath(path)) {
+        return false;
+    }
+    PCWSTR ext = path.c_str() + dot;
+    return _wcsicmp(ext, L".png") == 0 || _wcsicmp(ext, L".jpg") == 0 ||
+           _wcsicmp(ext, L".jpeg") == 0 || _wcsicmp(ext, L".bmp") == 0 ||
+           _wcsicmp(ext, L".webp") == 0;
+}
+
 winrt::com_ptr<ID2D1Bitmap> LoadShellIcon(ID2D1RenderTarget* target,
                                           IWICImagingFactory* wic,
                                           const std::wstring& appId,
@@ -115894,7 +116879,12 @@ winrt::com_ptr<ID2D1Bitmap> LoadShellIcon(ID2D1RenderTarget* target,
     if (!target || !wic) {
         return bitmap;
     }
-    if (HBITMAP icon = LoadAppIconBitmap(nullptr, appId, size)) {
+    HBITMAP icon =
+        IsPictureFilePath(appId) ? LoadPictureBitmap(appId.c_str(), size) : nullptr;
+    if (!icon) {
+        icon = LoadAppIconBitmap(nullptr, appId, size);
+    }
+    if (icon) {
         winrt::com_ptr<IWICBitmap> wicBitmap;
         winrt::com_ptr<IWICFormatConverter> converter;
         if (SUCCEEDED(wic->CreateBitmapFromHBITMAP(
@@ -115941,6 +116931,12 @@ winrt::com_ptr<ID2D1Bitmap> LoadAppIcon(ID2D1RenderTarget* target,
                                               bitmap.put());
         }
     };
+    if (IsPictureFilePath(appId)) {
+        bitmap = LoadShellIcon(target, wic, appId, size);
+        if (bitmap) {
+            return bitmap;
+        }
+    }
     // VLC 3 from its title (#6164): the program's own icon at the size
     // asked (explorer's is its taskbar button's small picture).
     if (appId == L"vlc.exe") {
@@ -120046,6 +121042,8 @@ int GetIslandPref(IslandPref pref) {
             return g_settings.islandAiClaude;
         case IslandPref::AiCodex:
             return g_settings.islandAiCodex;
+        case IslandPref::AiCustom:
+            return g_settings.islandAiCustom;
         case IslandPref::FocusedTitle:
             return g_settings.islandFocusedTitle;
         case IslandPref::WeatherCards:
@@ -120794,6 +121792,9 @@ void SetIslandPref(IslandPref pref, int value) {
             break;
         case IslandPref::AiCodex:
             g_settings.islandAiCodex = on;
+            break;
+        case IslandPref::AiCustom:
+            g_settings.islandAiCustom = on;
             break;
         case IslandPref::FocusedTitle:
             g_settings.islandFocusedTitle = on;
@@ -122119,7 +123120,8 @@ constexpr BackupValue kBackupValues[] = {
     {L"trayPinned", 8192},
     {L"updatesIgnored", 4096},  {L"profiles", 1024},
     {L"monitorProfiles", 2048}, {L"folderPins", 16 * 1024, 0, true},
-    {L"wallpaperFolder", 1024}, {L"agendas", 32 * 1024},
+    {L"wallpaperFolder", 1024}, {L"aiCustomFile", 1024},
+    {L"aiCustomList", 64 * 1024}, {L"agendas", 32 * 1024},
     {L"trayOrder", 8192},       {L"trayAnchors", 8192},
     {L"profileActive", 0, -1},  {L"islandMinimized", 0, 0},
     {L"islandMinimizedNotch0", 0, 0}, {L"islandMinimizedNotch1", 0, 0},
@@ -122553,6 +123555,9 @@ void SetIslandPrefValue(IslandPref pref, int value) {
             break;
         case IslandPref::AiCodex:
             g_settings.islandAiCodex = on;
+            break;
+        case IslandPref::AiCustom:
+            g_settings.islandAiCustom = on;
             break;
         case IslandPref::FocusedTitle:
             g_settings.islandFocusedTitle = on;
@@ -125325,6 +126330,34 @@ void Island::OnNetSpeedTimer() {
 // The AI agents' files watched by the main island while some island shows
 // them (a monitor with a profile of its own too): read when one changes,
 // and once now.
+void SetAiCustomFile(const std::wstring& path) {
+    if (path == g_aiCustomFile) {
+        return;
+    }
+    g_aiCustomFile = path;
+    SetStoredString(L"aiCustomFile", path.c_str());
+    if (Island* main = MainIsland()) {
+        IslandScope scope(main);
+        main->UpdateAiUsageWatch();
+    }
+}
+
+void SaveAiCustomEntries() {
+    std::vector<std::vector<std::wstring>> records;
+    for (const auto& e : g_aiCustomEntries) {
+        records.push_back({e.name, e.pillName, e.file, e.icon});
+    }
+    SaveRecords(L"aiCustomList", records);
+    g_aiCustomEntriesVersion++;
+    if (!g_settings.islandAiCustom) {
+        SetIslandPref(IslandPref::AiCustom, 1);
+    }
+    if (Island* main = MainIsland()) {
+        IslandScope scope(main);
+        main->UpdateAiUsageWatch();
+    }
+}
+
 void Island::UpdateAiUsageWatch() {
     if (!m_hwnd) {
         return;
@@ -125338,10 +126371,24 @@ void Island::UpdateAiUsageWatch() {
     }
     if (!AnyIslandLook([](Island&) { return g_settings.islandAiUsage; })) {
         StopAiUsageWatch();
+        g_aiCustom.clear();
+        m_aiCustomFileWatched.clear();
+        m_aiCustomEntriesWatched = -1;
         return;
     }
+    const bool wantCustom = AnyIslandLook([](Island&) {
+        return g_settings.islandAiUsage && g_settings.islandAiCustom;
+    });
+    const std::wstring customFile = wantCustom ? g_aiCustomFile : std::wstring();
     if (m_aiUsageThread) {
-        return;
+        if (customFile == m_aiCustomFileWatched &&
+            g_aiCustomEntriesVersion == m_aiCustomEntriesWatched) {
+            return;
+        }
+        StopAiUsageWatch();
+    }
+    if (!wantCustom) {
+        g_aiCustom.clear();
     }
     m_aiUsageStop = CreateEvent(nullptr, TRUE, FALSE, nullptr);
     if (!m_aiUsageStop) {
@@ -125359,6 +126406,43 @@ void Island::UpdateAiUsageWatch() {
                                              INVALID_FILE_ATTRIBUTES;
     if (m_aiCodexWatched) {
         job->folders[(int)AiAgent::Codex] = codex;
+    }
+    m_aiCustomFileWatched = customFile;
+    m_aiCustomEntriesWatched = g_aiCustomEntriesVersion;
+    m_aiCustomWatched = false;
+    auto folderOf = [](const std::wstring& path) {
+        const size_t slash = path.rfind(L'\\');
+        return slash == std::wstring::npos ? std::wstring()
+                                           : path.substr(0, slash);
+    };
+    if (!customFile.empty()) {
+        const std::wstring folder = folderOf(customFile);
+        m_aiCustomWatched = !folder.empty() &&
+                            GetFileAttributes(folder.c_str()) !=
+                                INVALID_FILE_ATTRIBUTES;
+        if (m_aiCustomWatched) {
+            job->folders[kAiAgents] = folder;
+        }
+        job->customFile = customFile;
+    }
+    if (wantCustom) {
+        job->customEntries = g_aiCustomEntries;
+        for (const auto& entry : g_aiCustomEntries) {
+            const std::wstring folder = folderOf(entry.file);
+            if (folder.empty() ||
+                _wcsicmp(folder.c_str(), job->folders[kAiAgents].c_str()) == 0 ||
+                GetFileAttributes(folder.c_str()) == INVALID_FILE_ATTRIBUTES) {
+                continue;
+            }
+            const bool seen = std::any_of(
+                job->extraFolders.begin(), job->extraFolders.end(),
+                [&](const std::wstring& f) {
+                    return _wcsicmp(f.c_str(), folder.c_str()) == 0;
+                });
+            if (!seen) {
+                job->extraFolders.push_back(folder);
+            }
+        }
     }
     m_aiUsageThread =
         CreateThread(nullptr, 0, AiUsageThreadProc, job, 0, nullptr);
@@ -125394,8 +126478,8 @@ void Island::StopAiUsageWatch() {
 }
 
 // Each minute: the time left goes down (laid out again, nothing read); Codex's
-// sessions watched once they're there, and the watch started again if its
-// thread ended by itself (a folder it watched gone).
+// sessions and custom file's folder watched once they're there, and the watch
+// started again if its thread ended by itself (a folder it watched gone).
 void Island::OnAiUsageMinute() {
     if (m_aiUsageThread &&
         WaitForSingleObject(m_aiUsageThread, 0) == WAIT_OBJECT_0) {
@@ -125407,6 +126491,17 @@ void Island::OnAiUsageMinute() {
         const std::wstring codex = CodexSessionsFolder();
         if (!codex.empty() &&
             GetFileAttributes(codex.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            StopAiUsageWatch();
+            UpdateAiUsageWatch();
+            return;
+        }
+    }
+    if (!m_aiCustomWatched && !m_aiCustomFileWatched.empty()) {
+        const size_t slash = m_aiCustomFileWatched.rfind(L'\\');
+        if (slash != std::wstring::npos &&
+            GetFileAttributes(
+                m_aiCustomFileWatched.substr(0, slash).c_str()) !=
+                INVALID_FILE_ATTRIBUTES) {
             StopAiUsageWatch();
             UpdateAiUsageWatch();
             return;
@@ -125444,6 +126539,9 @@ void Island::OnAiUsageRead(const AiUsageRead& read) {
         g_aiUsage[(int)AiAgent::Claude] = read.claude;
     }
     g_aiUsage[(int)AiAgent::Codex] = read.codex;
+    if (read.customRead) {
+        g_aiCustom = read.custom;
+    }
     ForEachIsland([](Island& island) {
         if (g_settings.islandAiUsage) {
             island.Relayout();
@@ -132417,6 +133515,27 @@ void Island::Layout() {
                     }
                     any = true;
                 }
+                if (g_settings.islandAiCustom) {
+                    for (size_t i = 0; i < g_aiCustom.size(); i++) {
+                        if (const AiLimit* tight =
+                                AiTightCustom(g_aiCustom[i], now)) {
+                            if (!g_aiCustom[i].icon.empty() &&
+                                GetAppBitmap(g_aiCustom[i].icon)) {
+                                m_slots.push_back({IslandItem::AiUsage,
+                                                   {x, 0, x + iconSlot, height},
+                                                   g_aiCustom[i].icon,
+                                                   kAppIconFont});
+                                m_slots.back().action = kAiCustomAction + (int)i;
+                                x += iconSlot + std::round(2 * scale);
+                            }
+                            addStacked(IslandItem::AiUsage,
+                                       g_aiCustom[i].pillName,
+                                       AiPillLimitValue(*tight, now));
+                            m_slots.back().action = kAiCustomAction + (int)i;
+                            any = true;
+                        }
+                    }
+                }
                 if (!any) {
                     addIcon(IslandItem::AiUsage, {kGlyphAiUsage});
                 }
@@ -136450,6 +137569,17 @@ void Island::Render(bool force) {
                     brush->SetColor(RgbColor(
                         rest ? 0x30D158 : 0xFF9F0A,
                         (TimerClockOf(mode).running ? 0.95f : 0.6f) * shown));
+                } else if (slot.item == IslandItem::AiUsage &&
+                           slot.action >= kAiCustomAction &&
+                           slot.action <
+                               kAiCustomAction + (int)g_aiCustom.size()) {
+                    const long long now = UnixNow();
+                    const AiLimit* tight = AiTightCustom(
+                        g_aiCustom[slot.action - kAiCustomAction], now);
+                    const int rgb =
+                        tight ? AiUsageRgb(AiUsedNow(*tight, now)) : -1;
+                    brush->SetColor(rgb >= 0 ? RgbColor(rgb, 0.95f * shown)
+                                             : Fg(0.95f * shown));
                 } else {
                     brush->SetColor(Fg(0.95f * shown));
                 }
@@ -137925,6 +139055,26 @@ std::wstring Island::ItemTip(IslandItem item, const std::wstring& text) const {
                        (limit == &usage.session ? L"5 h"
                                                 : Tr(L"week", L"semana")) +
                        L" " + percent;
+            }
+        }
+        if (g_settings.islandAiCustom) {
+            for (const auto& custom : g_aiCustom) {
+                if (custom.windows.empty()) {
+                    continue;
+                }
+                tip += L"\n" + custom.name;
+                for (const auto& w : custom.windows) {
+                    const double used = AiUsedNow(w.limit, now);
+                    if (used < 0) {
+                        continue;
+                    }
+                    WCHAR percent[16];
+                    swprintf_s(percent, L"%.0f%%", used);
+                    tip += L" \u00B7 " +
+                           (w.label.empty() ? std::wstring()
+                                            : w.label + L" ") +
+                           percent;
+                }
             }
         }
         return tip;
@@ -149803,6 +150953,7 @@ void LoadSettings() {
     g_settings.islandAiUsage = Wh_GetIntValue(L"islandAiUsage", 0) != 0;
     g_settings.islandAiClaude = Wh_GetIntValue(L"islandAiClaude", 1) != 0;
     g_settings.islandAiCodex = Wh_GetIntValue(L"islandAiCodex", 1) != 0;
+    g_settings.islandAiCustom = Wh_GetIntValue(L"islandAiCustom", 0) != 0;
     g_settings.islandFocusedTitle =
         Wh_GetIntValue(L"islandFocusedTitle", 0) != 0;
     g_settings.islandWeatherCards =
@@ -150002,6 +151153,8 @@ void LoadSettings() {
             GetWholeStringValue(L"islandPetName", 64);
         g_settings.islandPetSoundList = GetWholeStringValue(
             L"islandPetSoundList", kPetSoundListRoom);
+        g_aiCustomFile = GetWholeStringValue(L"aiCustomFile", 1024);
+        LoadAiCustomEntries();
     }
     g_settings.islandTrayStyle =
         std::clamp(Wh_GetIntValue(L"islandTrayStyle", 0), 0, 2);
